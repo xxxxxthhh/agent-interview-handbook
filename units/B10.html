@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>B10 上线后的质量回溯 · Agent 设计面试手册</title>
+<meta name="description" content="Tracing a quality regression">
+<link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Noto+Sans+SC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Noto+Sans+SC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"></noscript>
+<link rel="stylesheet" href="../assets/handbook.css">
+<link rel="stylesheet" href="../assets/interview.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+<button class="theme-toggle" type="button" aria-label="切换深色/浅色模式" title="切换深色/浅色模式">
+  <span class="moon" aria-hidden="true">🌙</span><span class="sun" aria-hidden="true">☀️</span>
+</button>
+<div class="wrap">
+<nav class="crumb"><a href="../index.html">← 目录</a> · Part B · 横切深挖</nav>
+<main data-unit="B10" data-kind="B">
+<header class="ch">
+  <div class="blockrow" aria-hidden="true"><span class=""></span><span class="w"></span><span class=""></span><span class=""></span><span class="w"></span><span class=""></span><span class="f"></span><span class=""></span><span class="w"></span><span class="f"></span></div>
+  <div class="kicker">Part B · 横切深挖 · B10 </div>
+  <h1>Tracing a quality regression<span class="zh">上线后的质量回溯</span></h1>
+  <div class="meta">
+    
+    <span>口述 <b>2 min</b></span>
+    <span>追问 <b>7 层</b></span>
+    <span>适合 <b>垂直 Agent 研发, FDE, Solutions</b></span>
+  </div>
+</header>
+<section id="prompt">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Prompt 题面</span></div>
+<h2>先想清楚再开口</h2>
+<div data-prompt><div class="callout prompt-card"><p>你刚讲完 A02 的深度研究 Agent，面试官接着问：「上线两个月后，分析师开始抱怨报告质量变差了。可是没有任何报错，延迟也正常。你怎么查？」</p></div>
+<p>题面为本书自拟的训练题，不代表任何公司的真实面试题或真实系统。场景沿用 A02 的研究 Agent（虚构练习设定）。</p></div>
+<h3>约束</h3><div class="tbl-scroll"><table><thead><tr><th>约束</th><th>取值（练习设定）</th></tr></thead><tbody><tr><td>系统</td><td>A02 的研究流水线：拆子问题 → 网页与内部文档检索 → 证据卡抽取 → 综合成报告 → 分析师签发</td></tr><tr><td>症状</td><td>分析师签发前的修改率，三周内从约 15% 升到约 30%；没有报错，延迟和 token 用量正常</td></tr><tr><td>这三周里的变更</td><td>模型网关上的模型别名指向了新版本；内部文档索引重建了一次；综合步骤的 prompt 改过一版；另外有几个常用网页来源改了版式</td></tr><tr><td>数据</td><td>trace 里会出现内部文档和客户资料，属于机密；日志要脱敏，访问按项目组授权</td></tr><tr><td>留存</td><td>trace 按合规要求留存 30 天</td></tr><tr><td>时效</td><td>业务方希望本周内止血</td></tr></tbody></table></div><details class="reveal" data-reveal="twist"><summary>答到一半再点开：面试官补了一句</summary><div class="reveal-body"><p data-twist>「完整的 trace 载荷只留了 7 天，而问题是三周前开始的；你只剩下元数据。」</p></div></details>
+</section>
+<section id="reference">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Answer 参考回答</span></div>
+<h2>先口答，再展开</h2>
+<div data-reference><details class="reveal" data-reveal="reference"><summary>展开参考回答</summary><div class="reveal-body"><h3>该先问的问题</h3><ol><li>「变差」具体是什么？修改集中在哪一类：事实错误、漏了来源、引用对不上，还是结构和措辞？这决定先查哪个阶段。</li><li>变差是普遍的，还是集中在某类问题、某个项目组、某种来源上？这决定先分层还是先查全局变更。</li><li>这段时间有哪些变更，有没有记录：部署、模型版本、索引、prompt、配置、外部来源？没有变更日志的变化，要从 trace 里的版本字段反推。</li><li>trace 记了什么、留了多久、谁能看？能不能在冻结的输入上重放？这决定能做对照实验，还是只能看相关性。</li><li>止血的手段有哪些：能不能钉住模型版本、回滚 prompt 或索引、临时提高人审比例？这决定止血和诊断能不能并行。</li></ol><h3>一句话框架</h3><div class="frame" data-frame><p>从用户看到的结果往回查，逐个阶段找第一个出错的地方；每个阶段的 trace 都要记下实际版本和输入输出哈希，用来定位变化，但判断对错要看内容；归因靠在冻结输入上一次只改一个因素的对照，而不是看时间线猜。</p></div><h3>设计取舍表</h3><figure data-fig="B10-trace"><svg viewBox="0 0 560 520" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="从用户结果往回倒查的六个阶段，以及每个阶段的 trace 要记录什么">
+  <defs>
+    <marker id="b10-arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--ink-soft)"/>
+    </marker>
+  </defs>
+
+  <text x="36" y="22" class="mn" style="font-size:13px">从用户结果往回查，找第一个出错的阶段</text>
+  <line x1="18" y1="36" x2="18" y2="440" stroke="var(--ink-soft)" stroke-width="2" marker-end="url(#b10-arr)"/>
+
+  <!-- 1 用户结果 -->
+  <rect x="36" y="36" width="170" height="58" rx="7" fill="var(--card)" stroke="var(--waste)" stroke-width="2.5"/>
+  <text x="121" y="60" class="lbl" text-anchor="middle" style="font-size:15.5px">用户结果 / 人审</text>
+  <text x="121" y="80" class="sub" text-anchor="middle" style="font-size:13px">症状在这里出现</text>
+  <text x="220" y="58" class="sub" style="font-size:14px">签发前修改、推翻、投诉</text>
+  <text x="220" y="80" class="sub" style="font-size:14px">审核人动作 + 理由码</text>
+
+  <!-- 2 综合输出 -->
+  <rect x="36" y="104" width="170" height="58" rx="7" fill="var(--alloc)" stroke="var(--alloc)"/>
+  <text x="121" y="128" class="lbl" text-anchor="middle" style="font-size:15.5px;fill:var(--on-fill)">生成 / 综合</text>
+  <text x="121" y="148" class="onfill" text-anchor="middle" style="font-size:12.5px">模型节点</text>
+  <text x="220" y="126" class="sub" style="font-size:14px">实际模型版本（不是别名）</text>
+  <text x="220" y="148" class="sub" style="font-size:14px">prompt 版本哈希、输出长度、引用数</text>
+
+  <!-- 3 证据抽取 -->
+  <rect x="36" y="172" width="170" height="58" rx="7" fill="var(--alloc)" stroke="var(--alloc)"/>
+  <text x="121" y="196" class="lbl" text-anchor="middle" style="font-size:15.5px;fill:var(--on-fill)">证据抽取</text>
+  <text x="121" y="216" class="onfill" text-anchor="middle" style="font-size:12.5px">模型节点</text>
+  <text x="220" y="194" class="sub" style="font-size:14px">抽出的字段、归源置信</text>
+  <text x="220" y="216" class="sub" style="font-size:14px">抽取失败与「无法判断」的计数</text>
+
+  <!-- 4 检索与工具 -->
+  <rect x="36" y="240" width="170" height="58" rx="7" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="121" y="264" class="lbl" text-anchor="middle" style="font-size:15.5px">检索 / 工具调用</text>
+  <text x="121" y="284" class="sub" text-anchor="middle" style="font-size:13px">不经过模型</text>
+  <text x="220" y="262" class="sub" style="font-size:14px">查询、索引版本、文档 ID + 内容哈希</text>
+  <text x="220" y="284" class="sub" style="font-size:14px">工具版本、返回码、内容质量信号</text>
+
+  <!-- 5 权限决定 -->
+  <rect x="36" y="308" width="170" height="58" rx="7" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="121" y="332" class="lbl" text-anchor="middle" style="font-size:15.5px">权限决定</text>
+  <text x="121" y="352" class="sub" text-anchor="middle" style="font-size:13px">不经过模型</text>
+  <text x="220" y="330" class="sub" style="font-size:14px">允许 / 拒绝、依据的 ACL 与策略版本</text>
+  <text x="220" y="352" class="sub" style="font-size:14px">被过滤掉的文档数</text>
+
+  <!-- 6 输入与规划 -->
+  <rect x="36" y="376" width="170" height="58" rx="7" fill="var(--card)" stroke="var(--line)"/>
+  <text x="121" y="400" class="lbl" text-anchor="middle" style="font-size:15.5px">输入 / 规划</text>
+  <text x="121" y="420" class="sub" text-anchor="middle" style="font-size:13px">任务从这里进入</text>
+  <text x="220" y="398" class="sub" style="font-size:14px">输入哈希、任务类型与分层标签</text>
+  <text x="220" y="420" class="sub" style="font-size:14px">配置版本、拆出的子问题</text>
+
+  <!-- 底注 -->
+  <text x="36" y="468" class="mn" style="font-size:12.5px">每个 span 共用一个 trace ID；正文按字段脱敏，</text>
+  <text x="36" y="488" class="mn" style="font-size:12.5px">哈希只能定位变化；载荷抽样存受控存储，≤30 天到期清理</text>
+
+  <!-- 图例 -->
+  <rect x="36" y="498" width="14" height="14" rx="3" fill="var(--alloc)"/>
+  <text x="56" y="510" class="sub" style="font-size:12.5px">模型节点</text>
+  <rect x="140" y="498" width="14" height="14" rx="3" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="160" y="510" class="sub" style="font-size:12.5px">不经过模型</text>
+  <rect x="256" y="498" width="14" height="14" rx="3" fill="var(--card)" stroke="var(--waste)" stroke-width="2.5"/>
+  <text x="276" y="510" class="sub" style="font-size:12.5px">人工节点</text>
+</svg><figcaption>六个阶段与各自该记的字段。症状出现在最上面的用户结果，原因可能在下面任何一层；诊断就是从上往下找第一个输出已经不对的阶段。颜色沿用全书图例。</figcaption></figure>
+<div class="tbl-scroll"><table><thead><tr><th>设计点</th><th>采用</th><th>否决的备选</th><th>什么证据会让我改</th></tr></thead><tbody><tr><td>trace 结构</td><td>每个任务一个 trace ID，每个阶段一个 span；所有 span 记元数据（版本、哈希、计数、耗时、决定）；完整载荷按比例抽样，存进按项目组授权的受控存储，和 trace 一样最多留 30 天，到期清理（含备份），支持按数据主体删除。哈希和计数只能说明「变了」，说明不了「错了」</td><td>只记最终输出；或者把全部原文写进普通日志</td><td>存储成本或合规不允许存载荷时，只留哈希和指针，并接受有些问题无法复现（见追问 2）</td></tr><tr><td>版本钉住</td><td>每个 span 记解析后的实际版本：模型版本（而不是「latest」这类别名）、prompt 版本哈希、索引版本、工具版本、配置版本</td><td>只记别名，或者靠部署记录去对</td><td>不改；版本不在 trace 里，归因就只能靠猜</td></tr><tr><td>定位方法</td><td>从修改和推翻最多的样本出发，逐个阶段检查输出，标出「第一个出错的阶段」，再按阶段汇总。只有载荷还在、或能按权限回源重取的样本才判得了；只剩元数据的样本标「疑似阶段」，单独统计；同时把质量指标按任务类型、项目组、来源分层</td><td>盯着总体分数，对着变更时间线猜原因</td><td>失败集中在某一层时，先在那一层内查，不必逐阶段全查</td></tr><tr><td>因果确认</td><td>在冻结的输入上重放，一次只改一个因素（模型版本、prompt、索引），每个配置重复跑几次，比较受影响样本上的结果</td><td>看哪个变更和质量下降时间吻合，就认定是它</td><td>输入或来源已经取不回（网页变了、载荷过期）时，退回到分层相关性，并在结论里写明只是相关</td></tr><tr><td>止血</td><td>与诊断并行：能定位到的因素先回到已知好的版本（比如钉住旧模型版本）；定位不了时，临时提高人审比例或收窄功能</td><td>等查清原因再动</td><td>回滚之后指标没有恢复，说明归因错了，回到对照实验</td></tr><tr><td>权限与脱敏</td><td>trace 继承被处理数据的 ACL 与分级；字段级脱敏后再落盘；调试访问要限时审批并留审计</td><td>把 trace 当普通运维日志，所有工程师都能看</td><td>不改；trace 本身就是一份机密数据的副本</td></tr><tr><td>闭环</td><td>事故样本按版本标注后加入评测集（按 B06 的口径）；给出错的阶段加检查或告警；模型、prompt、索引的变更先在影子流量上对比再放量</td><td>修好就结束</td><td>同类问题第二次出现，说明检查加错了地方，回到阶段归因</td></tr></tbody></table></div></div></details></div>
+</section>
+<section id="oral">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Two-minute English 口述</span></div>
+<h2>两分钟，先结论后展开</h2>
+<div data-oral><div class="timer" data-timer data-seconds="120" hidden><span class="t-label">口述计时</span><span class="t-read" aria-live="polite">02:00</span><span class="t-bar"><span></span></span><button type="button" data-act="toggle">开始</button><button type="button" data-act="reset">重置</button></div><details class="reveal" data-reveal="english"><summary>展开 2 分钟英文口述稿</summary><div class="reveal-body"><p>I'd start from what users actually see, not from the dashboards. Analysts are editing more reports, so I pull the most-edited ones, walk each through the pipeline stage by stage — input, permissions, retrieval, extraction, synthesis — and mark the first stage whose output was already wrong. Then I aggregate: is it mostly retrieval, mostly synthesis?</p>
+<p>At the same time I slice quality by task type, project, and source, because a regression is often concentrated in one slice.</p>
+<p>This only works if every span records the resolved versions — the actual model version, not an alias, plus prompt hash, index version, and tool version — and fingerprints of inputs and outputs. Hashes tell me something changed, not whether it's wrong. Payloads are sampled into access-controlled storage within the thirty-day retention limit; the rest is redacted metadata.</p>
+<p>Three changes landed in the same window, so timing alone proves nothing. I replay frozen inputs and change one factor at a time — model, prompt, index — running each configuration several times.</p>
+<p>I stop the bleeding in parallel: pin the last known-good version if I can, otherwise raise the human review rate.</p>
+<p>Finally, the incident cases get labeled and added to the eval set, the failing stage gets a check, and future model or prompt changes go through shadow comparison before rollout.</p></div></details></div>
+</section>
+<section id="followups">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Follow-ups 追问</span></div>
+<h2>一层一层往下问</h2>
+<ol class="followups" data-followups><li data-layer="1"><div class="fq"><span class="qtype">为何不用备选</span>为什么不直接回滚到上一版，先把质量拉回来再说？</div><details class="reveal" data-reveal="f1"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>回滚是止血，不是诊断；而且这里的「上一版」不唯一：模型别名、索引、prompt 三处都变了，只回滚一处可能没用，全部回滚又会把有用的改动一起扔掉。</li><li>该做的是两件事并行：能确定的因素先回到已知好的版本，同时临时提高人审比例兜底；另一边在冻结输入上做单因素对照。</li><li>触发改变的条件：如果重放显示单一因素就能解释大部分受影响样本，就只回滚它；如果回滚后指标没恢复，说明归因错了。</li></ul></div></details></li><li data-layer="2"><div class="fq"><span class="qtype">需求变化</span>完整载荷只留了 7 天，问题是三周前开始的。你只剩元数据，还能查吗？</div><details class="reveal" data-reveal="f2"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>元数据还能回答「在哪里」：修改率按版本字段、任务类型、来源分层，看变化集中在哪个版本组合或哪类来源上。</li><li>回答不了「为什么」：没有输入，就没法重放三周前的任务。改为用最近 7 天的样本复现：如果同样的分层里仍然能看到问题，就在这些新样本上做对照。</li><li>内部文档可以按文档 ID 和版本从源系统重新取（按请求人的权限）；网页可能已经变了，取回来的不是当时的内容，这部分结论只能标为「相关」。</li><li>之后调整采集策略，但不突破 30 天：在批准的 30 天内提高有代表性的载荷抽样比例；分析师标记修改或推翻时，把那个任务的载荷立即采进受控的事故样本库，趁它还没过期先标注、先重放。</li><li>确实需要保存超过 30 天（比如为了长期回归集），要先取得合规的明确例外，或者做不可识别化处理并经合规认定；即使获批，也保留项目组 ACL、按数据主体删除和到期清理，备份同样适用。</li></ul></div></details></li><li data-layer="3"><div class="fq"><span class="qtype">失败反证</span>你把问题归因到模型版本升级，钉住旧版本后，质量没有回来。</div><details class="reveal" data-reveal="f3"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>说明当时的归因是相关不是因果：模型升级和索引重建落在同一周，时间线分不开。</li><li>回到冻结输入上单独换索引版本，结果显示受影响的主要是一批重建时被切坏的长文档：检索没召回，综合步骤就只能用二手来源。</li><li>教训：多个变更同时上线时，时间吻合不算证据；归因要有阶段证据（这里是检索 span 里召回的文档 ID 变了），再加单因素重放。</li></ul></div></details></li><li data-layer="4"><div class="fq"><span class="qtype">安全</span>trace 里有内部文档和客户资料。谁能看？怎么防止 trace 变成泄露通道？</div><details class="reveal" data-reveal="f4"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>trace 继承被处理数据的 ACL 和分级：按项目组授权，跨组查看要审批。</li><li>落盘前做字段级脱敏；原文只存哈希和文档指针，需要看原文时按查看人的权限回源系统读取。</li><li>调试访问限时、留审计；导出 trace 也要走同样的出站校验。trace 汇集了所有阶段的数据，它本身就是高价值目标。</li></ul></div></details></li><li data-layer="5"><div class="fq"><span class="qtype">归因</span>每个阶段自带的检查都是绿的，可质量还是变差了。怎么办？</div><details class="reveal" data-reveal="f5"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>阶段检查只挡特定错误（格式、引用是否存在、返回码），挡不住「合法但更差」的输出。</li><li>这时看分布变化：检索返回的来源构成、每份报告的引用数和一手来源占比、输出长度、「无法判断」的比例，和基线时期逐项对比。</li><li>再从修改最多、载荷还在的样本里抽一批，由人按「第一个出错的阶段」标注，这比任何一个自动指标都直接；只剩元数据的样本最多标到「疑似阶段」。</li></ul></div></details></li><li data-layer="6"><div class="fq"><span class="qtype">静默变化</span>没人发版，但几个常用网页来源改了版式，抓回来的是 cookie 提示页或登录墙。工具返回码全是成功。</div><details class="reveal" data-reveal="f6"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>工具「成功」不等于内容可用：抓取 span 要记内容质量信号，比如正文长度、模板文字比例、是否命中常见的拦截页特征。</li><li>按来源监控抓取的有效内容率，某个来源突然下降就告警，并在报告里把这个来源标为「未取到」，而不是让综合步骤拿拦截页去写。</li><li>这类变化不会出现在自己的变更日志里，所以外部依赖要当成随时可能变化的输入来监控。</li></ul></div></details></li><li data-layer="7"><div class="fq"><span class="qtype">评估闭环</span>查清楚之后，怎么防止同类问题再发生？</div><details class="reveal" data-reveal="f7"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>事故样本按版本和失败阶段标注后加入评测集（口径同 B06：专家标注、分层、写样本量），模型、prompt、索引的变更都要先过这批样本。</li><li>在出错的阶段加检查或告警；如果问题出在检索，就补一个召回率的回归集。</li><li>变更管理：模型版本钉住，升级时先在影子流量上对比新旧输出，差异大的样本交人看过再放量。</li></ul></div></details></li></ol><button type="button" class="next-layer" data-act="next-layer" hidden>下一层追问 ↓</button>
+</section>
+<section id="failures">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Failure Modes 失败模式</span></div>
+<h2>这些地方最容易栽</h2>
+<div class="fail-grid"><div class="case fail-card"><div class="case-head"><span class="cell"></span>只记别名，不记实际版本</div><div class="case-body"><ul><li><b>症状</b>：质量突然变了，却说不清这段时间模型、prompt 或索引有没有变；不同人给出不同的时间线。</li><li><b>根因</b>：trace 里只写了「latest」这类别名，或者版本只存在部署记录里，没有落到每个 span 上。</li><li><b>防线</b>：每个 span 记解析后的实际版本和哈希；变更日志与 trace 版本字段定期对账；模型版本默认钉住，升级是一次显式变更。</li></ul></div></div><div class="case fail-card"><div class="case-head"><span class="cell"></span>工具「成功」返回了垃圾</div><div class="case-body"><ul><li><b>症状</b>：抓取或检索的返回码全部正常，报告却越来越依赖二手来源、引用越来越少。</li><li><b>根因</b>：只监控调用是否成功，不监控返回内容是否可用；外部来源改版、拦截页、索引切坏，都会产出「合法但无用」的结果。</li><li><b>防线</b>：工具 span 记内容质量信号；按来源监控有效内容率；取不到的内容在报告里显式标出，不让下游硬用。</li></ul></div></div><div class="case fail-card"><div class="case-head"><span class="cell"></span>把时间吻合当成因果</div><div class="case-body"><ul><li><b>症状</b>：回滚了「嫌疑最大」的变更，指标没有恢复；团队接着回滚下一个，来回折腾。</li><li><b>根因</b>：多个变更落在同一窗口，只看时间线，没有阶段证据，也没有单因素对照。</li><li><b>防线</b>：先用阶段归因定位到出错的阶段，再在冻结输入上一次只改一个因素重放；结论写明是因果还是相关。</li></ul></div></div></div>
+</section>
+<section id="refs">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Cross-references 回链</span></div>
+<h2>原理去哪里补</h2>
+<ul class="refs"><li><a href="A02.html"><span class="ref-tag">A02</span></a> 深度研究 Agent：本卡沿用的场景，证据卡与归源字段就是 trace 的一部分</li><li><a href="A01.html"><span class="ref-tag">A01</span></a> 改代码的 Agent：测试和 diff 本身就是天然的阶段证据</li><li><a href="A05.html"><span class="ref-tag">A05</span></a> 浏览器 Agent：页面改版和拦截页是最常见的静默变化</li><li><a href="B06.html"><span class="ref-tag">B06</span></a> Agent 怎么评估：离线与线上评估体系，事故样本回流的标注口径</li><li><a href="B08.html"><span class="ref-tag">B08</span></a> 错误恢复与幂等：出了错之后怎么重试和补偿</li><li><a href="https://xxxxxthhh.github.io/ai-systems-handbook/chapters/6-1-observability.html" rel="noopener"><span class="ref-tag">AI 6.1</span></a> 可观测性：LLM 应用的 tracing 与质量监控指标 <span class="ref-book">· AI 系统工程手册</span></li><li><a href="https://xxxxxthhh.github.io/ai-systems-handbook/chapters/6-4-eval-pipeline.html" rel="noopener"><span class="ref-tag">AI 6.4</span></a> Eval Pipeline：离线、在线与回归测试三层 <span class="ref-book">· AI 系统工程手册</span></li><li><a href="https://xxxxxthhh.github.io/ai-systems-handbook/chapters/6-5-degradation-fallback.html" rel="noopener"><span class="ref-tag">AI 6.5</span></a> 降级与回退：上游变化时的止血手段 <span class="ref-book">· AI 系统工程手册</span></li><li><a href="https://xxxxxthhh.github.io/ccdv-handbook/chapters/ch16.html" rel="noopener"><span class="ref-tag">DV ch16</span></a> 调试与错误处理 <span class="ref-book">· CCDV 备考手册</span></li><li><a href="https://xxxxxthhh.github.io/ccar-handbook/chapters/ch14.html" rel="noopener"><span class="ref-tag">AR ch14</span></a> 可靠性工程：升级与人工介入 <span class="ref-book">· CCAR 备考手册</span></li></ul>
+</section>
+<section id="mine">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Your Turn 本人填写</span></div>
+<h2>只写真实经历</h2>
+<div class="mine" data-mine><p>只写真实经历，没有就空着，不编。公开版只有空表；填好的版本存在自己的私用练习记录里。</p>
+<div class="tbl-scroll"><table><thead><tr><th>场景</th><th>当时发生了什么</th><th>我亲自做了什么（团队 / AI 做了什么）</th><th>怎么发现的，结果和证据</th><th>之后怎么防</th></tr></thead><tbody><tr><td>线上质量变差，但没有任何报错</td><td></td><td></td><td></td><td></td></tr><tr><td>以为找到了原因，回滚后才发现不是它</td><td></td><td></td><td></td><td></td></tr></tbody></table></div></div><h3>练习记录</h3><div class="mine"><div class="tbl-scroll"><table><thead><tr><th>日期</th><th>口述用时</th><th>脱稿？</th><th>答不上的追问</th><th>下一轮修正（≤2）</th></tr></thead><tbody><tr><td></td><td></td><td></td><td></td><td></td></tr></tbody></table></div></div>
+</section>
+</main>
+<nav class="next"><a href="B09.html">← B09 延迟与成本</a><span class="disabled"></span></nav>
+</div>
+<script src="../assets/interview.js"></script>
+</body>
+</html>

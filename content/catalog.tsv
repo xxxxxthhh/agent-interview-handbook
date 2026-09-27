@@ -1,0 +1,17 @@
+id	kind	priority	title	title_zh	hook
+A01	A	-	Design a coding agent	改代码的 Agent	模糊需求 → 可验证条款 → 受限修改 → 独立放行
+A02	A	P0	Design a deep research agent	深度研究 / 搜索 Agent	跨来源取证、引用可核查、来源矛盾怎么办
+A03	A	P0	Design a customer support agent	客服 Agent（含语音变体）	政策步骤交给代码，风险动作先确认，语音链路有超时和转人工
+A04	A	P0	Design an enterprise document agent	受监管文档审查 Agent	固定工作流 + 逐字引用 + 权限跟人走 + 签字人放行
+A05	A	-	Design a browser agent	浏览器 / computer-use Agent	观察与动作分离，不可逆动作前停下
+A06	A	-	Design a long-running goal agent	长任务 goal Agent	目标与验收在会话外，检查器判完成，预算与升级终止循环
+B01	B	P0	Workflow, agent, or multi-agent?	编排光谱	步骤能否预定、有无外部反馈、能否独立并行
+B02	B	-	Tool and MCP interface design	Tool / MCP 接口设计	模型只提议，执行器验证参数、权限与副作用
+B03	B	-	Context engineering and caching	上下文工程与缓存	任务真值、可重取观察、稳定前缀分层
+B04	B	-	Memory design	Memory 设计	只记有来源、有权限、有生命周期的事实
+B05	B	-	Why not multi-agent?	为什么不 multi-agent	独立可合并才试，和等预算单 Agent 公平对照
+B06	B	P0	Agent evaluation	Agent 评估	可重置任务集，分开量结果、规则、轨迹、一致性
+B07	B	P0	Injection, permissions and human-in-the-loop	注入、权限与人工放行点	不可信内容与授权决策隔开，按动作风险定放行
+B08	B	-	Retries, idempotency and recovery	错误恢复与幂等	错误先分类，写入要幂等键、对账、补偿
+B09	B	-	Latency and cost under SLA	延迟与成本	拆关键路径和单位成本，守住质量门槛
+B10	B	-	Tracing a quality regression	上线后的质量回溯	从用户结果倒查检索、模型、工具、权限、人工节点

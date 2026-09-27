@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>B02 Tool / MCP 接口设计 · Agent 设计面试手册</title>
+<meta name="description" content="Tool and MCP interface design">
+<link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Noto+Sans+SC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Noto+Sans+SC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"></noscript>
+<link rel="stylesheet" href="../assets/handbook.css">
+<link rel="stylesheet" href="../assets/interview.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+<button class="theme-toggle" type="button" aria-label="切换深色/浅色模式" title="切换深色/浅色模式">
+  <span class="moon" aria-hidden="true">🌙</span><span class="sun" aria-hidden="true">☀️</span>
+</button>
+<div class="wrap">
+<nav class="crumb"><a href="../index.html">← 目录</a> · Part B · 横切深挖</nav>
+<main data-unit="B02" data-kind="B">
+<header class="ch">
+  <div class="blockrow" aria-hidden="true"><span class=""></span><span class="w"></span><span class=""></span><span class=""></span><span class="w"></span><span class=""></span><span class="f"></span><span class=""></span><span class="w"></span><span class="f"></span></div>
+  <div class="kicker">Part B · 横切深挖 · B02 </div>
+  <h1>Tool and MCP interface design<span class="zh">Tool / MCP 接口设计</span></h1>
+  <div class="meta">
+    
+    <span>口述 <b>2 min</b></span>
+    <span>追问 <b>6 层</b></span>
+    <span>适合 <b>垂直 Agent 研发, FDE, Solutions</b></span>
+  </div>
+</header>
+<section id="prompt">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Prompt 题面</span></div>
+<h2>先想清楚再开口</h2>
+<div data-prompt><div class="callout prompt-card"><p>你要把公司内部的订单、退款、工单系统接给客服 Agent。后端同事说：「我们已经有 40 个 REST 接口，自动生成一个 MCP server 全部暴露出去就行，模型自己会挑。」你怎么设计这层工具接口？怎么防止它选错工具、越权读别人的订单、重复退款？</p></div>
+<p>题面为本书自拟的训练题，通常是在 A01 / A03 / A04 / A05 之后被追问出来的；它不代表任何公司的真实面试题或真实系统。</p></div>
+<h3>约束</h3><div class="tbl-scroll"><table><thead><tr><th>约束</th><th>取值（练习设定）</th></tr></thead><tbody><tr><td>现有接口</td><td>40 个 REST 接口，含查询、改地址、退款、建工单，也含几个运维用的管理接口</td></tr><tr><td>调用者</td><td>终端用户通过客服 Agent 使用；Agent 在服务端运行</td></tr><tr><td>副作用</td><td>退款、改地址、建工单都有副作用；退款接口超时后结果未知的情况时有发生</td></tr><tr><td>权限</td><td>用户只能看、只能操作自己名下的订单</td></tr><tr><td>模型</td><td>通用 LLM，会选错工具、会填错参数、会在出错后反复重试</td></tr><tr><td>协议</td><td>工具通过 MCP 暴露给 Agent；规范细节以 MCP 规范 2026-07-28 版为准</td></tr></tbody></table></div><details class="reveal" data-reveal="twist"><summary>答到一半再点开：面试官补了一句</summary><div class="reveal-body"><p data-twist>「物流跟踪要接一家第三方公司提供的远程 MCP server，它的工具名、描述和 schema 都由对方维护，随时可能更新。」</p></div></details>
+</section>
+<section id="reference">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Answer 参考回答</span></div>
+<h2>先口答，再展开</h2>
+<div data-reference><details class="reveal" data-reveal="reference"><summary>展开参考回答</summary><div class="reveal-body"><h3>该先问的问题</h3><ol><li>Agent 以谁的身份调用工具？是用户本人的会话凭证，还是一个服务账号？这决定鉴权放在哪里。</li><li>40 个接口里，哪些有副作用、哪些能撤销？下游支持按操作 ID 去重和查询吗？这决定写工具要不要带幂等键、结果未知时怎么办。</li><li>客服这个任务真正需要哪几个动作？管理接口有没有任何理由暴露？这决定暴露面有多大。</li><li>哪些工具是自己团队维护的，哪些来自第三方？描述和 schema 变更谁来审？这决定对工具定义本身信任到什么程度。</li><li>出错时模型能不能自己改参数重试，还是必须停下来交给人？这决定错误信息要写给谁看、怎么写。</li></ol><h3>一句话框架</h3><div class="frame" data-frame><p>工具是给模型用的产品接口，不是后端 API 的镜像：按任务收窄、读写分开、关键参数用 ID 和枚举约束；模型只提议，执行端按用户权限和业务规则校验，并用稳定的 operation_id 保证副作用只发生一次；工具的描述和返回内容也都是不可信输入。</p></div><h3>设计取舍表</h3><div class="tbl-scroll"><table><thead><tr><th>设计点</th><th>采用</th><th>否决的备选</th><th>什么证据会让我改</th></tr></thead><tbody><tr><td>粒度</td><td>按任务包装的窄工具：查我的订单、申请退款、建工单，每个只做一件事，内部可以组合多个后端接口</td><td>40 个接口一对一自动生成，全量暴露</td><td>评测显示某个任务需要的两三步组合调用反复出错，就把它们合成一个任务级工具；反过来，某个工具经常被用在不该用的场景，就拆开或改名</td></tr><tr><td>名字、描述与 schema</td><td>名字用「动词 + 对象」；描述写清什么时候用、什么时候不用、参数格式和单位；关键参数用 ID、枚举和取值范围约束，不用自由文本承载；返回用结构化字段</td><td>沿用后端字段名和接口文档原文</td><td>评测里选错工具的样本集中在某两个工具之间，先改描述、再考虑合并</td></tr><tr><td>暴露面</td><td>只暴露任务需要的工具，读写分开；会话读过不可信内容之后，写工具改为必须确认；管理接口永不暴露给面向用户的 Agent</td><td>一个 manage_order(action=…) 大工具，靠参数区分读写</td><td>不改管理接口的结论；其余按任务评测结果增减</td></tr><tr><td>权限</td><td>工具以用户本人身份执行，服务端对每次调用鉴权；模型传来的订单号、句柄只是候选值，服务端每次校验它是否属于这个用户</td><td>服务账号调用，在 prompt 里告诉模型「当前用户是谁」</td><td>不改；让模型记住用户身份不是权限控制</td></tr><tr><td>副作用</td><td>用户确认一个具体动作时生成稳定的 operation_id，写工具必须带上；执行端按它去重，额度和次数与提交一起原子校验；结果未知先按 operation_id 查询，查不清就对账或转人工</td><td>在描述里叮嘱模型「不要重复调用」</td><td>只有三种情况才自动重试：下游在有效期内按同一业务交易 ID 去重；唯一约束和业务写入在同一事务里；或者查询明确证明这笔操作的终态是未生效或失败。查询结果是阴性但不是终态，就过了对账窗口再查，或者转人工；网关单独加一张账本不够（下游已退款、网关没来得及记结果就崩溃时，本地唯一键既确认不了成功，也不能安全重发）。都做不到，就把结果未知交给人，不自动重试</td></tr><tr><td>错误回传</td><td>模型能自己纠正的错误（格式、取值范围、业务规则）作为工具结果返回，说清哪个参数错、合法值是什么；遇到权限和策略拒绝，对模型标「不可重试」并给出下一步，但给用户看的说法不暴露资源是否存在；完整拒绝原因只留在服务端审计里；不回传堆栈和内部细节</td><td>直接抛 500 或返回一句「invalid」</td><td>同一个错误被模型用相同参数反复重试，说明错误信息不可操作，改写它</td></tr><tr><td>工具定义与返回的信任</td><td>工具返回的内容按不可信数据处理，进入模型前按输出 schema 校验；第三方 server 的描述和 annotations 不作为放行依据；工具名加服务前缀；我方客户端固定已审核的定义，变更审核后才生效；第三方工具只授予最小权限、只读，出站受监控</td><td>看 annotations 里标了只读，就跳过确认</td><td>不改；描述和 annotations 由 server 自己声明，只有可信的 server 才值得参考</td></tr></tbody></table></div></div></details></div>
+</section>
+<section id="oral">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Two-minute English 口述</span></div>
+<h2>两分钟，先结论后展开</h2>
+<div data-oral><div class="timer" data-timer data-seconds="120" hidden><span class="t-label">口述计时</span><span class="t-read" aria-live="polite">02:00</span><span class="t-bar"><span></span></span><button type="button" data-act="toggle">开始</button><button type="button" data-act="reset">重置</button></div><details class="reveal" data-reveal="english"><summary>展开 2 分钟英文口述稿</summary><div class="reveal-body"><p>I'd design tools as a product interface for the model, not a mirror of the backend.</p>
+<p>First, shape. Instead of exposing forty endpoints, I'd expose a few task-level tools — look up my order, request a refund, open a ticket — with verb-object names, descriptions that say when to use and when not to use them, and parameters constrained by IDs, enums and ranges. Admin endpoints are never exposed to a customer-facing agent.</p>
+<p>Second, the model only proposes. Every call runs with the user's own credentials and is authorized on the server. An order ID from the model is a candidate; the server checks it belongs to this user on every call.</p>
+<p>Third, side effects happen once. When the user confirms a specific refund, the system creates a stable operation ID. Retries reuse it, the executor deduplicates on it, and limits are checked atomically with the commit. If a call times out, we look the operation up before retrying.</p>
+<p>Fourth, errors are written for the model. Fixable errors say which parameter is wrong and what's valid; permission and policy denials are marked not retryable.</p>
+<p>Finally, tool output is untrusted input, and so are third-party tool descriptions. I pin their versions, review changes, and don't let their own annotations decide what needs confirmation.</p></div></details></div>
+</section>
+<section id="followups">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Follow-ups 追问</span></div>
+<h2>一层一层往下问</h2>
+<ol class="followups" data-followups><li data-layer="1"><div class="fq"><span class="qtype">为何不用备选</span>为什么不把 40 个接口全暴露出去？模型够聪明，会自己挑。</div><details class="reveal" data-reveal="f1"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>工具越多、彼此越相似，选错工具和填错参数的机会就越多；这不靠直觉判断，用同一评测集比较「全量暴露」和「任务级工具」两种设计的选择准确率和任务完成率。</li><li>暴露面就是攻击面：管理接口一旦出现在工具列表里，一次注入或一次选错就可能调用它。</li><li>工具定义每轮都在上下文里，数量越多，每轮的 token 越多；定义稳定、顺序固定，才不会打乱前缀缓存（B03）。</li><li>什么证据会让我放宽：某些高级用户确实需要更多工具时，按角色分组暴露，而不是一次全给。规范也允许 server 按调用者的授权返回不同的工具列表。</li></ul></div></details></li><li data-layer="2"><div class="fq"><span class="qtype">需求变化</span>物流跟踪要接一家第三方的远程 MCP server，工具定义由对方维护。</div><details class="reveal" data-reveal="f2"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>对方的描述和 annotations 只是声明：规范要求客户端在 server 不可信时把 annotations 当作不可信信息（<a href="https://modelcontextprotocol.io/specification/2026-07-28/server/tools">MCP 规范 · Tools</a>，2026-07-28 版）。是否需要确认，由我方的策略决定。</li><li>客户端把对方 <code>tools/list</code> 返回的描述交给模型，所以恶意或被攻破的 server 可以在描述里藏指令。对方改了定义，要等客户端重新获取并接受新列表才会影响模型：规范允许工具列表随时间变化，声明了 listChanged 且客户端订阅时会收到变更通知，列表还可能被缓存，旧会话未必立刻看到新描述。</li><li>「固定已审核的版本、记录定义哈希、哈希一变就暂停该工具、审核后再启用」是我方客户端的策略，不是 MCP 自动提供的保证。</li><li>哈希只覆盖定义：定义不变，对方服务器的代码和返回内容照样可以变。所以还要给第三方工具最小授权（只读、只拿运单号）、监控它的出站和返回，并定期跑行为回归，而不是只盯哈希。</li><li>它返回的物流信息也是不可信数据：只作为数据放进上下文，不能触发写工具。</li><li>只发给它完成任务所需的最少字段（运单号），不发用户手机号和地址全文；工具名加服务前缀，避免和自家工具重名。</li></ul></div></details></li><li data-layer="3"><div class="fq"><span class="qtype">失败反证</span>用户在对话里念了一个别人的订单号，模型照着调用了「查询订单」。</div><details class="reveal" data-reveal="f3"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>这正是「模型传的 ID 只是候选值」要挡的情况：服务端按用户凭证鉴权，订单不属于他就返回「未找到」，不区分「不存在」和「无权访问」，避免泄露订单是否存在。</li><li>句柄同理：服务端返回给模型的购物车号、会话号是名字，不是权限；每次带着它调用，都要重新校验调用者是否有权操作它。</li><li>发现：审计日志统计「归属不符」的拒绝次数，按用户和会话告警；把这类样本放进评测集，按「是否发生了越权读取」计分。</li></ul></div></details></li><li data-layer="4"><div class="fq"><span class="qtype">副作用</span>退款工具超时了，模型决定再调一次。</div><details class="reveal" data-reveal="f4"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>超时不等于失败：退款可能已经完成。写工具带着用户确认时生成的 operation_id，执行端按它去重，所以重试不会退两次。</li><li>模型的正确动作是先调用「查询操作结果」，而不是直接重试；查不清就进对账，或者转人工，并如实告诉用户「处理中」。</li><li>额度和次数的校验与提交在账本里原子完成，否则两个并发会话会同时通过（与 A03 的口径一致）。</li><li>能不能自动重试要看下游：只有三种情况才自动重试：下游在有效期内按同一业务交易 ID 去重；唯一约束和业务写入在同一事务里；或者查询明确证明这笔操作的终态是未生效或失败。查询结果是阴性但不是终态，就过了对账窗口再查，或者转人工。三样都做不到时，结果未知就停下交人，不自动重试（与 B08 一致）。</li></ul></div></details></li><li data-layer="5"><div class="fq"><span class="qtype">错误设计</span>模型收到一句「invalid request」，用同样的参数连续重试了 10 次。</div><details class="reveal" data-reveal="f5"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>错误信息要写给模型看：哪个参数错、合法格式或取值范围是什么、能不能重试。规范也把输入校验错误和业务逻辑错误归为工具执行错误，放在工具结果里返回，供模型自我纠正。</li><li>权限和策略拒绝要明确标「不可重试」，并给出下一步（例如转人工），否则模型会换着参数试探边界。</li><li>编排层兜底：同一工具、同一错误连续出现 N 次就停止，交给人或降级，不能只靠模型自己察觉在打转。</li></ul></div></details></li><li data-layer="6"><div class="fq"><span class="qtype">评估</span>你怎么知道这套工具接口设计得好不好？</div><details class="reveal" data-reveal="f6"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>固定任务集，分项计分：工具选择正确率、参数有效率、每个任务的调用次数、越权尝试被服务端拒绝的次数、同一错误的重复次数、副作用是否只发生一次。</li><li>改描述、改粒度都当作版本，在同一任务集上对比；描述的一句话改动就可能改变选择行为，所以要回归。</li><li>故障注入：模拟超时、重复响应、结果未知，检查是否出现重复副作用；这一项按「最终系统状态」计分，不按模型说了什么计分。</li></ul></div></details></li></ol><button type="button" class="next-layer" data-act="next-layer" hidden>下一层追问 ↓</button>
+</section>
+<section id="failures">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Failure Modes 失败模式</span></div>
+<h2>这些地方最容易栽</h2>
+<div class="fail-grid"><div class="case fail-card"><div class="case-head"><span class="cell"></span>把后端 API 原样镜像成工具</div><div class="case-body"><ul><li><b>症状</b>：模型经常在两三个相似接口之间选错，填的参数用的是后端的内部字段名；每轮的 token 很高。</li><li><b>根因</b>：工具按后端的组织方式暴露，而不是按任务；描述写给开发者看，没有说什么时候该用、什么时候不该用。</li><li><b>防线</b>：按任务包装窄工具，描述写使用边界，参数用 ID 和枚举约束；用选择准确率评测每次描述改动。</li></ul></div></div><div class="case fail-card"><div class="case-head"><span class="cell"></span>把模型给的 ID 当成授权</div><div class="case-body"><ul><li><b>症状</b>：用户能查到别人的订单，或者通过猜句柄操作别人的购物车。</li><li><b>根因</b>：工具信任了模型传来的参数，服务端只校验格式，不校验归属；或者用了服务账号，所有调用都有全量权限。</li><li><b>防线</b>：以用户身份调用，服务端每次校验资源归属；句柄是名字不是权限；越权拒绝进审计和评测。</li></ul></div></div><div class="case fail-card"><div class="case-head"><span class="cell"></span>超时重试造成重复副作用</div><div class="case-body"><ul><li><b>症状</b>：同一笔退款执行了两次，或者同一个问题建了两张工单。</li><li><b>根因</b>：写工具没有稳定的操作 ID，超时后模型或编排层直接重试；下游不去重。</li><li><b>防线</b>：用户确认时生成 operation_id，重试复用；执行端按它去重，额度与提交原子完成；结果未知先查询，查不清就对账或转人工。下游既不能在有效期内按同一 ID 去重、也没有同事务唯一约束、查询又证明不了终态时，不开放自动重试；查询阴性但非终态，过对账窗口再查或转人工。</li></ul></div></div><div class="case fail-card"><div class="case-head"><span class="cell"></span>第三方工具定义被悄悄改了</div><div class="case-body"><ul><li><b>症状</b>：某个第三方工具上线后行为变了，模型开始在调用它之后做一些用户没要求的事。</li><li><b>根因</b>：客户端重新获取了变更后的定义，没有审核就交给了模型；客户端还按对方声明的 annotations 放宽了确认。另一种情况是定义没变，对方服务器的代码行为变了。</li><li><b>防线</b>：我方客户端固定已审核的定义并记录哈希，变更暂停、审核后启用；不按第三方 annotations 放行；第三方工具最小授权、出站监控、定期行为回归；返回内容按不可信数据处理。</li></ul></div></div></div>
+</section>
+<section id="refs">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Cross-references 回链</span></div>
+<h2>原理去哪里补</h2>
+<ul class="refs"><li><a href="https://xxxxxthhh.github.io/ai-systems-handbook/chapters/4-1-tool-use.html" rel="noopener"><span class="ref-tag">AI 4.1</span></a> Tool Use 基础：function calling 的本质，schema 设计对成功率的影响 <span class="ref-book">· AI 系统工程手册</span></li><li><a href="https://xxxxxthhh.github.io/ai-systems-handbook/chapters/6-6-generation-output-contracts.html" rel="noopener"><span class="ref-tag">AI 6.6</span></a> 提交点、稳定 operation_id 与幂等重试 <span class="ref-book">· AI 系统工程手册</span></li><li><a href="https://xxxxxthhh.github.io/ccdv-handbook/chapters/ch12.html" rel="noopener"><span class="ref-tag">DV ch12</span></a> 工具实现与 MCP 服务器开发 <span class="ref-book">· CCDV 备考手册</span></li><li><a href="https://xxxxxthhh.github.io/ccar-handbook/chapters/ch11.html" rel="noopener"><span class="ref-tag">AR ch11</span></a> 工具接口设计 <span class="ref-book">· CCAR 备考手册</span></li><li><a href="https://xxxxxthhh.github.io/ccar-handbook/chapters/ch12.html" rel="noopener"><span class="ref-tag">AR ch12</span></a> MCP 集成 <span class="ref-book">· CCAR 备考手册</span></li><li><a href="A01.html"><span class="ref-tag">A01</span></a> 改代码的 Agent：文件与命令类工具的权限边界</li><li><a href="A03.html"><span class="ref-tag">A03</span></a> 客服 Agent：退款的 operation_id 与账本原子提交</li><li><a href="A04.html"><span class="ref-tag">A04</span></a> 受监管文档审查 Agent：模型没有写入或发送工具</li><li><a href="A05.html"><span class="ref-tag">A05</span></a> 浏览器 Agent：不可逆动作前停下</li><li><a href="B07.html"><span class="ref-tag">B07</span></a> 注入、权限与人工放行点</li><li><a href="B08.html"><span class="ref-tag">B08</span></a> 错误分类、重试、幂等与补偿</li></ul>
+</section>
+<section id="mine">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Your Turn 本人填写</span></div>
+<h2>只写真实经历</h2>
+<div class="mine" data-mine><p>只写真实经历，没有就空着，不编。公开版只有空表；填好的版本存在自己的私用练习记录里。</p>
+<div class="tbl-scroll"><table><thead><tr><th>场景</th><th>当时发生了什么</th><th>我亲自做了什么（团队 / AI 做了什么）</th><th>怎么发现的，结果和证据</th><th>之后怎么防</th></tr></thead><tbody><tr><td>模型选错工具或填错参数</td><td></td><td></td><td></td><td></td></tr><tr><td>工具调用产生了重复或越权的副作用</td><td></td><td></td><td></td><td></td></tr></tbody></table></div></div><h3>练习记录</h3><div class="mine"><div class="tbl-scroll"><table><thead><tr><th>日期</th><th>口述用时</th><th>脱稿？</th><th>答不上的追问</th><th>下一轮修正（≤2）</th></tr></thead><tbody><tr><td></td><td></td><td></td><td></td><td></td></tr></tbody></table></div></div>
+</section>
+</main>
+<nav class="next"><a href="B01.html">← B01 编排光谱</a><a href="B03.html">B03 上下文工程与缓存 →</a></nav>
+</div>
+<script src="../assets/interview.js"></script>
+</body>
+</html>

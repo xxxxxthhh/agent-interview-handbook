@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- 全书 signature 内存块母题：蓝=已用 橙=浪费 灰=空闲。
+       favicon 无法引用页面 CSS 变量，此处色值为浅色主题定值，属唯一合理例外。 -->
+  <rect width="32" height="32" rx="7" fill="#1B2733"/>
+  <rect x="5" y="9" width="6" height="6" rx="1.5" fill="#2F6DE0"/>
+  <rect x="13" y="9" width="6" height="6" rx="1.5" fill="#2F6DE0"/>
+  <rect x="21" y="9" width="6" height="6" rx="1.5" fill="#E0632F"/>
+  <rect x="5" y="17" width="6" height="6" rx="1.5" fill="#2F6DE0"/>
+  <rect x="13" y="17" width="6" height="6" rx="1.5" fill="#E0632F"/>
+  <rect x="21" y="17" width="6" height="6" rx="1.5" fill="#C6CDD2"/>
+</svg>

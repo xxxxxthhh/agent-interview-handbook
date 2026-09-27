@@ -1,0 +1,86 @@
+<svg viewBox="0 0 760 452" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="深度研究 Agent 的数据流与控制流">
+  <defs>
+    <marker id="a02-arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--ink-soft)"/>
+    </marker>
+  </defs>
+
+  <!-- 第一行：规划（左→右） -->
+  <rect x="22" y="30" width="150" height="54" rx="7" fill="var(--card)" stroke="var(--line)"/>
+  <text x="97" y="53" class="lbl" text-anchor="middle">研究问题</text>
+  <text x="97" y="71" class="sub" text-anchor="middle">来自客户</text>
+
+  <rect x="212" y="30" width="150" height="54" rx="7" fill="var(--card)" stroke="var(--waste)" stroke-width="2.5"/>
+  <text x="287" y="53" class="lbl" text-anchor="middle">大纲确认</text>
+  <text x="287" y="71" class="sub" text-anchor="middle">分析师定证据标准</text>
+
+  <rect x="402" y="30" width="150" height="54" rx="7" fill="var(--alloc)" stroke="var(--alloc)"/>
+  <text x="477" y="53" class="lbl" text-anchor="middle" style="fill:var(--on-fill)">规划器</text>
+  <text x="477" y="71" class="onfill" text-anchor="middle">拆成子问题</text>
+
+  <rect x="592" y="30" width="150" height="54" rx="7" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="667" y="53" class="lbl" text-anchor="middle">预算分配</text>
+  <text x="667" y="71" class="sub" text-anchor="middle">token · 次数 · 时钟</text>
+
+  <line x1="172" y1="57" x2="208" y2="57" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a02-arr)"/>
+  <line x1="362" y1="57" x2="398" y2="57" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a02-arr)"/>
+  <line x1="552" y1="57" x2="588" y2="57" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a02-arr)"/>
+
+  <!-- 不可信数据区 + 子问题循环 -->
+  <rect x="8" y="118" width="744" height="138" rx="10" fill="var(--waste-soft)" stroke="var(--waste)" stroke-dasharray="6 5" opacity=".9"/>
+  <text x="22" y="112" class="mn">不可信数据区 · 网页、内部文档、子 Agent 的输出都只作数据</text>
+  <text x="110" y="246" class="mn">× 6 个子问题 · 独立时并行 · 各带上下文与预算</text>
+
+  <!-- 第二行：取证（右→左） -->
+  <rect x="582" y="152" width="150" height="54" rx="7" fill="var(--alloc)" stroke="var(--alloc)"/>
+  <text x="657" y="175" class="lbl" text-anchor="middle" style="fill:var(--on-fill)">检索循环</text>
+  <text x="657" y="193" class="onfill" text-anchor="middle">有步数上限</text>
+
+  <rect x="312" y="152" width="170" height="54" rx="7" fill="var(--card)" stroke="var(--line)"/>
+  <text x="397" y="175" class="lbl" text-anchor="middle">抓取 + 快照</text>
+  <text x="397" y="193" class="sub" text-anchor="middle">网页限域 · 内部按 ACL</text>
+
+  <rect x="42" y="152" width="170" height="54" rx="7" fill="var(--alloc)" stroke="var(--alloc)"/>
+  <text x="127" y="175" class="lbl" text-anchor="middle" style="fill:var(--on-fill)">证据卡抽取</text>
+  <text x="127" y="193" class="onfill" text-anchor="middle">论断 · 片段 · 出处候选</text>
+
+  <line x1="667" y1="84" x2="667" y2="148" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a02-arr)"/>
+  <line x1="582" y1="179" x2="486" y2="179" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a02-arr)"/>
+  <line x1="312" y1="179" x2="216" y2="179" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a02-arr)"/>
+
+  <!-- 第三行：归源、综合与放行（左→右） -->
+  <rect x="22" y="296" width="128" height="54" rx="7" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="86" y="319" class="lbl" text-anchor="middle">确定性合并</text>
+  <text x="86" y="337" class="sub" text-anchor="middle">URL · 编号 · 哈希</text>
+  <rect x="170" y="296" width="128" height="54" rx="7" fill="var(--alloc)" stroke="var(--alloc)"/>
+  <text x="234" y="319" class="lbl" text-anchor="middle" style="fill:var(--on-fill)">语义归源</text>
+  <text x="234" y="337" class="onfill" text-anchor="middle">出处候选 + 置信</text>
+  <rect x="318" y="296" width="128" height="54" rx="7" fill="var(--alloc)" stroke="var(--alloc)"/>
+  <text x="382" y="319" class="lbl" text-anchor="middle" style="fill:var(--on-fill)">综合</text>
+  <text x="382" y="337" class="onfill" text-anchor="middle">只引卡 ID · 不联网</text>
+  <rect x="466" y="296" width="128" height="54" rx="7" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="530" y="319" class="lbl" text-anchor="middle">引用核查</text>
+  <text x="530" y="337" class="sub" text-anchor="middle">链接 · 片段 · 原值</text>
+  <rect x="614" y="296" width="128" height="54" rx="7" fill="var(--card)" stroke="var(--waste)" stroke-width="2.5"/>
+  <text x="678" y="319" class="lbl" text-anchor="middle">分析师签发</text>
+  <text x="678" y="337" class="sub" text-anchor="middle">覆盖 · 冲突 · 抽检率</text>
+  <line x1="86" y1="206" x2="86" y2="292" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a02-arr)"/>
+  <line x1="150" y1="323" x2="166" y2="323" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a02-arr)"/>
+  <line x1="298" y1="323" x2="314" y2="323" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a02-arr)"/>
+  <line x1="446" y1="323" x2="462" y2="323" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a02-arr)"/>
+  <line x1="594" y1="323" x2="610" y2="323" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a02-arr)"/>
+  <text x="234" y="366" class="mn" text-anchor="middle">不确定 → 分析师裁决 · 标「独立性未确认」</text>
+
+  <!-- 预算收尾 -->
+  <text x="22" y="388" class="mn">⏱ 预算或时钟将尽：先写覆盖与冲突清单再停 · 一切出站由执行端按许可与分级标签校验</text>
+
+  <!-- 图例 -->
+  <rect x="22" y="412" width="16" height="16" rx="3" fill="var(--alloc)"/>
+  <text x="46" y="425" class="sub">模型节点</text>
+  <rect x="140" y="412" width="16" height="16" rx="3" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="164" y="425" class="sub">不经过模型的检查</text>
+  <rect x="312" y="412" width="16" height="16" rx="3" fill="var(--card)" stroke="var(--waste)" stroke-width="2.5"/>
+  <text x="336" y="425" class="sub">人工放行</text>
+  <rect x="430" y="412" width="16" height="16" rx="3" fill="var(--waste-soft)" stroke="var(--waste)" stroke-dasharray="4 3"/>
+  <text x="454" y="425" class="sub">不可信数据区</text>
+</svg>

@@ -1,0 +1,5 @@
+__pycache__/
+.DS_Store
+# 不公开：规格（含个人求职信息）与私人黑名单
+spec/
+.private/

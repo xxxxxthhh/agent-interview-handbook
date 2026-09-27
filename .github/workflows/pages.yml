@@ -1,0 +1,48 @@
+# 部署到 GitHub Pages。
+# 只发布书本身（index / units / assets）：content/ 是内容源，tools/ 是构建与门禁脚本，
+# reference/ 是构建期测试页，cards/ 是口练卡，都不属于站点。
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rebuild and verify the committed pages are current
+        run: |
+          python3 tools/build.py
+          git diff --exit-code -- index.html units/ cards/
+
+      - name: Assemble site (book only)
+        run: |
+          mkdir -p _site
+          cp index.html _site/
+          cp -R units assets _site/
+          touch _site/.nojekyll
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

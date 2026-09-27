@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>B07 注入、权限与人工放行点 · Agent 设计面试手册</title>
+<meta name="description" content="Injection, permissions and human-in-the-loop">
+<link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Noto+Sans+SC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Noto+Sans+SC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"></noscript>
+<link rel="stylesheet" href="../assets/handbook.css">
+<link rel="stylesheet" href="../assets/interview.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+<button class="theme-toggle" type="button" aria-label="切换深色/浅色模式" title="切换深色/浅色模式">
+  <span class="moon" aria-hidden="true">🌙</span><span class="sun" aria-hidden="true">☀️</span>
+</button>
+<div class="wrap">
+<nav class="crumb"><a href="../index.html">← 目录</a> · Part B · 横切深挖</nav>
+<main data-unit="B07" data-kind="B">
+<header class="ch">
+  <div class="blockrow" aria-hidden="true"><span class=""></span><span class="w"></span><span class=""></span><span class=""></span><span class="w"></span><span class=""></span><span class="f"></span><span class=""></span><span class="w"></span><span class="f"></span></div>
+  <div class="kicker">Part B · 横切深挖 · B07 <span class="pri">P0</span></div>
+  <h1>Injection, permissions and human-in-the-loop<span class="zh">注入、权限与人工放行点</span></h1>
+  <div class="meta">
+    
+    <span>口述 <b>2 min</b></span>
+    <span>追问 <b>7 层</b></span>
+    <span>适合 <b>FDE, Solutions, 垂直 Agent 研发</b></span>
+  </div>
+</header>
+<section id="prompt">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Prompt 题面</span></div>
+<h2>先想清楚再开口</h2>
+<div data-prompt><div class="callout prompt-card"><p>你的 Agent 会读外部邮件、网页和附件，同时又能调用工具：发邮件、改日程、共享文件。有人在一封邮件里藏了一段指令。你怎么挡？哪些动作必须让人点头？</p></div>
+<p>题面为本书自拟的训练题，通常是在 A03 / A04 / A05 之后被追问出来的；它不代表任何公司的真实面试题或真实系统。</p></div>
+<h3>约束</h3><div class="tbl-scroll"><table><thead><tr><th>约束</th><th>取值（练习设定）</th></tr></thead><tbody><tr><td>场景</td><td>企业内部的邮件与日程助理，每位员工一个</td></tr><tr><td>能读</td><td>用户的收件箱（含外部发件人）、日历、用户有权访问的共享文档</td></tr><tr><td>能做</td><td>起草和发送邮件、接受或改期会议、共享文档链接</td></tr><tr><td>数据</td><td>收件箱里有客户合同、薪酬邮件等敏感内容；公司有数据分级政策</td></tr><tr><td>用户期望</td><td>少打扰：「别什么都问我」</td></tr><tr><td>模型</td><td>通用 LLM，无法保证识别出每一次注入</td></tr></tbody></table></div><details class="reveal" data-reveal="twist"><summary>答到一半再点开：面试官补了一句</summary><div class="reveal-body"><p data-twist>产品经理补了一句——「为了体验，读到会议邀请直接接受，读到报销单直接替用户提交。」</p></div></details>
+</section>
+<section id="reference">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Answer 参考回答</span></div>
+<h2>先口答，再展开</h2>
+<div data-reference><details class="reveal" data-reveal="reference"><summary>展开参考回答</summary><div class="reveal-body"><h3>该先问的问题</h3><ol><li>助理以谁的身份行动？是用户本人的权限，还是一个服务账号？这决定权限边界画在哪里。</li><li>哪些动作可以撤销，哪些发出去就收不回？这决定哪些可以自动执行。</li><li>有没有「对外发送」的能力？收件人是否限制在公司域内？这决定被注入后最坏能把什么送出去。</li><li>公司的数据分级政策是什么？哪些类别不许离开公司？这决定输出侧要不要做发送前检查。</li><li>用户能接受多少次确认？确认由谁来点——用户本人，还是另一位审核人？这决定放行点放在哪里，以及审批疲劳的风险。</li></ol><h3>一句话框架</h3><div class="frame" data-frame><p>注入挡不住，只能缩小它得手后的影响：不可信内容、私有数据和外发能力不在无人把关的同一步里相遇；模型只提议，执行端按用户权限和业务政策校验；按动作能否撤销、影响谁、涉及多少钱来决定自动、确认、人审还是禁止。</p></div><h3>设计取舍表</h3><figure data-fig="B07-matrix"><svg viewBox="0 0 760 430" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="按动作可逆性与影响范围决定放行方式的矩阵">
+  <!-- 列标题 -->
+  <text x="300" y="26" class="lbl" text-anchor="middle">只影响用户自己</text>
+  <text x="300" y="44" class="sub" text-anchor="middle">自己的草稿、提醒、个人日程</text>
+  <text x="590" y="26" class="lbl" text-anchor="middle">对他人可见 / 对外发出 / 敏感数据</text>
+  <text x="590" y="44" class="sub" text-anchor="middle">发邮件、共享文件、接受会议邀请（应答对组织者可见）</text>
+
+  <!-- 行标题 -->
+  <text x="22" y="116" class="lbl">可撤销</text>
+  <text x="22" y="134" class="sub">能在事后恢复</text>
+  <text x="22" y="226" class="lbl">不可撤销</text>
+  <text x="22" y="244" class="sub">发出去就收不回</text>
+
+  <!-- 四格 -->
+  <rect x="160" y="62" width="280" height="100" rx="8" fill="var(--alloc-soft)" stroke="var(--alloc)"/>
+  <text x="178" y="90" class="lbl">自动执行，可撤销</text>
+  <text x="178" y="112" class="sub">例：把回复存成草稿、给自己加提醒</text>
+  <text x="178" y="132" class="mn">留痕 · 一键撤销 · 不打断用户</text>
+
+  <rect x="450" y="62" width="280" height="100" rx="8" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="468" y="90" class="lbl">执行前确认</text>
+  <text x="468" y="112" class="sub">例：接受内部会议邀请、改期自己组织的会</text>
+  <text x="468" y="132" class="mn">确认框展示具体参数与触发来源</text>
+
+  <rect x="160" y="172" width="280" height="100" rx="8" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="178" y="200" class="lbl">执行前确认</text>
+  <text x="178" y="222" class="sub">例：永久删除一批自己的邮件</text>
+  <text x="178" y="242" class="mn">展示影响范围，默认按钮是「取消」</text>
+
+  <rect x="450" y="172" width="280" height="100" rx="8" fill="var(--waste-soft)" stroke="var(--waste)" stroke-width="2.5"/>
+  <text x="468" y="200" class="lbl">人审或双人确认</text>
+  <text x="468" y="222" class="sub">例：对外发送带敏感附件的邮件</text>
+  <text x="468" y="242" class="mn">收件人域与数据分级由执行端硬校验</text>
+
+  <!-- 禁止带 -->
+  <rect x="160" y="286" width="570" height="46" rx="8" fill="var(--head-bg)"/>
+  <text x="178" y="314" class="lbl" style="fill:var(--head-fg)">超出用户本人权限 → 禁止</text>
+  <text x="712" y="314" class="onfill" text-anchor="end" style="fill:var(--head-fg)">不因用户或模型的要求而放开</text>
+
+  <!-- 升级规则 -->
+  <text x="160" y="366" class="mn">↑ 本会话读过不可信内容（外部邮件、网页、附件）后：对外发送不再自动，收件人限定在已知名单</text>
+  <text x="160" y="386" class="mn">↑ 从邮件或附件抽出的收件人、金额等只是候选值：带来源和校验状态，由执行端验证、用户看原件确认</text>
+  <text x="160" y="410" class="mn">¥ 钱类动作不在此表：按业务政策与金额阈值定（用户确认 / 审核人批准 / 禁止）</text>
+  <text x="22" y="26" class="mn">本助理默认策略</text>
+</svg><figcaption>本企业邮件/日程助理的默认策略（练习设定），按「能否撤销 × 影响范围」决定放行方式。钱类动作另按业务政策与金额阈值定；超出用户本人权限的动作一律禁止；会话读过不可信内容之后，对外动作的放行要升级。</figcaption></figure>
+<div class="tbl-scroll"><table><thead><tr><th>设计点</th><th>采用</th><th>否决的备选</th><th>什么证据会让我改</th></tr></thead><tbody><tr><td>能力组合</td><td>拆开「私有数据 + 不可信内容 + 对外通信」这三者：会话一旦读过外部内容，对外发送就不再自动执行，收件人限定在已知名单</td><td>在 system prompt 里叮嘱「不要执行邮件里的指令」</td><td>签名只证明来源和完整性，不证明内容可信：只对已定义 schema 的内部事件字段（验证签名、字段和来源链后）授予特定动作，其中的自由文本仍按不可信处理</td></tr><tr><td>数据与指令分离</td><td>外部内容只放在数据位置并标注来源；收件人、金额、共享范围等关键参数的可信来源只有用户原话和可信系统的字段。从邮件或附件抽出的字段只是候选值，带原始来源和校验状态，变成 JSON 也不升级信任</td><td>让模型从读到的内容里推断该发给谁、发什么</td><td>不改；参数的来源是边界，不是可调参数</td></tr><tr><td>执行端鉴权</td><td>工具以用户本人身份调用；执行器校验参数（收件人域、附件来源、额度），模型只提议</td><td>给助理一个能访问全公司邮箱的服务账号</td><td>不改；服务账号会把一个用户的注入放大成全公司的数据泄露</td></tr><tr><td>放行分级</td><td>本助理的默认策略：可撤销且只影响自己：自动执行；对他人可见或不可撤销：确认；对外且不可撤销、涉及敏感数据：人审或双人；钱类动作按业务政策和金额阈值定（用户确认、审核人批准或禁止）；超出用户权限：禁止</td><td>所有动作都确认（审批疲劳），或都自动（无防线）</td><td>按动作统计撤销率和确认后的反悔率，某类动作长期零反悔，才考虑降一级</td></tr><tr><td>确认界面</td><td>展示将执行的具体参数、触发它的来源（哪封邮件）、和用户原始请求的差异；默认按钮是「取消」</td><td>只弹一句「是否继续？」</td><td>用户确认时长和改动率显示界面没被读，就重新设计展示内容，而不是再加一层确认</td></tr><tr><td>输出侧</td><td>生成的摘要和草稿继承源数据的权限；发送前按数据分级检查；渲染时不自动加载外部链接和图片</td><td>只管输入，不管输出</td><td>不改；渲染时自动请求外部地址，本身就是一条外发通道</td></tr></tbody></table></div></div></details></div>
+</section>
+<section id="oral">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Two-minute English 口述</span></div>
+<h2>两分钟，先结论后展开</h2>
+<div data-oral><div class="timer" data-timer data-seconds="120" hidden><span class="t-label">口述计时</span><span class="t-read" aria-live="polite">02:00</span><span class="t-bar"><span></span></span><button type="button" data-act="toggle">开始</button><button type="button" data-act="reset">重置</button></div><details class="reveal" data-reveal="english"><summary>展开 2 分钟英文口述稿</summary><div class="reveal-body"><p>I start from the assumption that injection can't be reliably detected, so the goal is to reduce the impact of a successful injection rather than to catch it.</p>
+<p>First, the dangerous combination is private data, untrusted content, and the ability to send things out, all in one step with no one checking. So once a session has read an outside email or web page, outbound actions stop being automatic, and recipients are limited to known addresses.</p>
+<p>Second, the model only proposes. Tools run with the user's own permissions, and the executor validates the parameters — recipient domain, attachment source, amount. Values extracted from emails or attachments are untrusted candidates, even when structured; the executor validates them and the user confirms against the original.</p>
+<p>Third, I grade actions by whether they can be undone and who they affect. Reversible actions on the user's own data run automatically. Anything visible to others or irreversible needs confirmation, money follows the approved policy and amount threshold, and anything beyond the user's permissions is blocked.</p>
+<p>Confirmation only works if people read it, so the dialog shows the exact parameters, the email that triggered it, and how it differs from what the user asked. And I keep confirmations rare enough that they still mean something.</p>
+<p>Finally, I measure harmful side effects on an attack set, not how often the model refuses.</p></div></details></div>
+</section>
+<section id="followups">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Follow-ups 追问</span></div>
+<h2>一层一层往下问</h2>
+<ol class="followups" data-followups><li data-layer="1"><div class="fq"><span class="qtype">为何不用备选</span>加一个注入检测分类器或护栏模型，够不够？</div><details class="reveal" data-reveal="f1"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>不够当边界，可以当信号。分类器是概率性的，安全场景里漏掉的那一次就是事故；Simon Willison 在 <a href="https://simonwillison.net/2025/Jun/16/the-lethal-trifecta/">The lethal trifecta for AI agents</a>（2025-06-16）里也把「拦下 95%」称为不及格。</li><li>它适合用来触发降级：命中时直接切到「只读 + 全部确认」，而不是用它来决定放行。</li><li>触发改变的条件：对抗评测里，分类器加上能力收窄之后的「实际越权副作用率」确实下降，才值得保留它的维护成本。</li></ul></div></details></li><li data-layer="2"><div class="fq"><span class="qtype">需求变化</span>产品要求：读到会议邀请直接接受，读到报销单直接提交。</div><details class="reveal" data-reveal="f2"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>会议邀请：接受不是只影响自己的动作，内部邀请也一样——它会更新组织者和其他参与者看到的应答状态，还可能占用会议室等资源。是否自动接受，按组织内外、是否发送回复、共享范围和用户是否预先授权逐项定。接受可能向组织者暴露应答状态等元数据，具体看日历平台的设置（参见 <a href="https://developers.google.com/workspace/calendar/api/concepts/inviting-attendees-to-events">Invite users to an event</a>（2026-09-03 更新）、<a href="https://learn.microsoft.com/en-us/graph/api/event-accept?view=graph-rest-1.0">event: accept</a>（2024-06-21 更新）的 sendResponse 参数）。</li><li>报销单涉及钱，而且内容来自外部附件：从附件抽出的金额和收款方只是候选值，标明出自哪个附件、校验是否通过。执行端验证收款方在白名单内、金额与票据一致、用户有权提交且符合政策；用户看着原件和关键字段亲自确认提交，超过政策阈值的另走审核人批准。</li><li>和产品经理对齐的方式：拿分级矩阵逐项谈，同意把「可撤销且只影响自己」这一格做到全自动，换取另外几格保留确认。</li></ul></div></details></li><li data-layer="3"><div class="fq"><span class="qtype">失败反证</span>攻击者没有让助理发邮件，而是让它在给用户的摘要里写「你的账号异常，请点击此链接重新登录」。</div><details class="reveal" data-reveal="f3"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>这次注入的目标是人，不是工具，所以前面的执行端鉴权全部放行。</li><li>防线在输出侧：摘要里的链接标注来源，外部链接不渲染成可点击的按钮，出现「登录、付款、验证码」一类的请求时加警示。</li><li>另一种变体是外部图片外发，它要三个条件同时成立：敏感值被写进了攻击者控制的 URL、渲染端自动请求远程资源、出站策略放行了这个请求。所以渲染层默认不自动加载远程资源，并检查 URL 里有没有敏感数据。用户点击链接是另一条路径，要分别测试（包括预览、邮件代理和重定向）。</li></ul></div></details></li><li data-layer="4"><div class="fq"><span class="qtype">多轮诱导</span>攻击分散在几封邮件里，每一步单独看都无害，合起来是在打包客户合同往外发。</div><details class="reveal" data-reveal="f4"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>不按单条消息判断，按会话状态判断：会话读过哪些外部内容、接触过哪些敏感数据，这些都作为标记一直带到这次会话结束。</li><li>发送前的检查看累计效果：这次要发出的内容，里面有没有会话中读到的敏感数据，而不是只看这一步的指令。</li><li>评测集里要有多步攻击样本，按「最终是否发生了越权外发」计分。</li></ul></div></details></li><li data-layer="5"><div class="fq"><span class="qtype">用户自愿</span>用户自己说：「把这份客户合同发到我的私人邮箱。」</div><details class="reveal" data-reveal="f5"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>用户意图不等于授权。权限跟着人走，但同时受组织的数据分级政策约束：机密合同不许发到外部域，这条由执行端强制执行，模型和用户都不能绕过。</li><li>助理的正确行为是说明为什么不能发，并给出合规的替代做法（例如在公司设备上访问）。</li><li>这类请求要留审计记录，因为它可能正是被诱导的结果，也可能是真实的违规意图。</li></ul></div></details></li><li data-layer="6"><div class="fq"><span class="qtype">审批疲劳</span>确认弹得太多，用户什么都点「同意」。</div><details class="reveal" data-reveal="f6"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>先减少数量：把「可撤销且只影响自己」的动作改为自动执行 + 可撤销，确认只留给对外和不可撤销的动作。</li><li>再让确认值得读：只展示和用户原始请求不同的部分，高亮外部来源触发的参数。</li><li>用数据说话：统计确认的平均时长、同意率、确认后又撤销的比例。企业内的人审队列可以像 A04 那样在隔离的影子队列里放已知问题样本测检出率；终端用户这边则靠控制确认数量。</li></ul></div></details></li><li data-layer="7"><div class="fq"><span class="qtype">评估</span>你怎么证明这套设计挡住了注入？</div><details class="reveal" data-reveal="f7"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>建一个攻击样本集：直接指令、藏在附件和图片里的指令、多步诱导、诱导用户的社会工程。按「是否发生了实际越权副作用」计分，而不是按「模型是否拒绝」计分。</li><li>分层报告：哪一层挡住的（能力收窄、参数校验、确认、输出检查），以及有多少样本是靠用户确认才挡住的，这个比例高说明太依赖人。</li><li>每次换模型、改工具、加能力之前都跑回归；新增一种对外能力，就要新增对应的攻击样本。回归集里要有「内部系统签名的通知里转述了外部指令」这一类：签名有效，但转述的正文照样按不可信内容处理，不能触发外发。</li></ul></div></details></li></ol><button type="button" class="next-layer" data-act="next-layer" hidden>下一层追问 ↓</button>
+</section>
+<section id="failures">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Failure Modes 失败模式</span></div>
+<h2>这些地方最容易栽</h2>
+<div class="fail-grid"><div class="case fail-card"><div class="case-head"><span class="cell"></span>靠提示词防注入</div><div class="case-body"><ul><li><b>症状</b>：上线前的演示都没问题，上线后被一封精心构造的邮件绕过；修一次提示词，又出现新的绕法。</li><li><b>根因</b>：把「让模型不要听」当成了边界。模型把指令和数据放在同一个上下文里处理，提示词只能降低概率，不能保证。</li><li><b>防线</b>：边界放在模型之外——能力收窄、执行端参数校验、关键参数只来自可信来源、对外动作的放行分级。</li></ul></div></div><div class="case fail-card"><div class="case-head"><span class="cell"></span>确认框变成橡皮图章</div><div class="case-body"><ul><li><b>症状</b>：确认的同意率接近百分之百，平均确认时长越来越短，出事后用户说「我以为是正常提示」。</li><li><b>根因</b>：确认太多、展示的内容读不懂或看不出风险，用户学会了直接点「同意」。</li><li><b>防线</b>：减少确认数量，只展示差异和来源，默认按钮设为「取消」；按动作统计确认时长和反悔率。</li></ul></div></div><div class="case fail-card"><div class="case-head"><span class="cell"></span>输出本身成了外发通道</div><div class="case-body"><ul><li><b>症状</b>：执行端日志里没有任何发送动作，数据却出现在了外部服务器的访问记录里。</li><li><b>根因</b>：三个条件同时成立：敏感值被写进了攻击者控制的图片 URL，渲染端自动请求远程资源，出站策略放行了这个请求。用户点击外链是另一条路径。</li><li><b>防线</b>：渲染层默认不自动加载远程资源；检查 URL 中的敏感数据；输出里的外部链接标注来源；自动加载、点击外链、预览与重定向分别做测试。</li></ul></div></div></div>
+</section>
+<section id="refs">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Cross-references 回链</span></div>
+<h2>原理去哪里补</h2>
+<ul class="refs"><li><a href="https://xxxxxthhh.github.io/ai-systems-handbook/chapters/6-2-prompt-injection.html" rel="noopener"><span class="ref-tag">AI 6.2</span></a> 攻击面分类，以及为什么注入无法根治、只能限制影响范围 <span class="ref-book">· AI 系统工程手册</span></li><li><a href="https://xxxxxthhh.github.io/ai-systems-handbook/chapters/4-1-tool-use.html" rel="noopener"><span class="ref-tag">AI 4.1</span></a> 工具 schema 设计：让模型只能提议合法的参数 <span class="ref-book">· AI 系统工程手册</span></li><li><a href="https://xxxxxthhh.github.io/ccdv-handbook/chapters/ch14.html" rel="noopener"><span class="ref-tag">DV ch14</span></a> Security and Safety：权限与不可信输入 <span class="ref-book">· CCDV 备考手册</span></li><li><a href="https://xxxxxthhh.github.io/ccar-handbook/chapters/ch11.html" rel="noopener"><span class="ref-tag">AR ch11</span></a> 工具接口设计：参数校验放在执行端 <span class="ref-book">· CCAR 备考手册</span></li><li><a href="https://xxxxxthhh.github.io/ccar-handbook/chapters/ch14.html" rel="noopener"><span class="ref-tag">AR ch14</span></a> 可靠性工程：升级与人工介入 <span class="ref-book">· CCAR 备考手册</span></li><li><a href="A03.html"><span class="ref-tag">A03</span></a> 客服 Agent：退款这类涉及钱的动作怎么放行</li><li><a href="A04.html"><span class="ref-tag">A04</span></a> 受监管文档审查：权限跟着合同走到输出，影子队列测审核人</li><li><a href="A05.html"><span class="ref-tag">A05</span></a> 浏览器 Agent：网页内容不可信，不可逆动作前停下</li></ul>
+</section>
+<section id="mine">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Your Turn 本人填写</span></div>
+<h2>只写真实经历</h2>
+<div class="mine" data-mine><p>只写真实经历，没有就空着，不编。公开版只有空表；填好的版本存在自己的私用练习记录里。</p>
+<div class="tbl-scroll"><table><thead><tr><th>场景</th><th>当时发生了什么</th><th>我亲自做了什么（团队 / AI 做了什么）</th><th>怎么发现的，结果和证据</th><th>之后怎么防</th></tr></thead><tbody><tr><td>Agent 或自动化读到了不该信的输入，差点执行了动作</td><td></td><td></td><td></td><td></td></tr><tr><td>确认或审批流程形同虚设</td><td></td><td></td><td></td><td></td></tr></tbody></table></div></div><h3>练习记录</h3><div class="mine"><div class="tbl-scroll"><table><thead><tr><th>日期</th><th>口述用时</th><th>脱稿？</th><th>答不上的追问</th><th>下一轮修正（≤2）</th></tr></thead><tbody><tr><td></td><td></td><td></td><td></td><td></td></tr></tbody></table></div></div>
+</section>
+</main>
+<nav class="next"><a href="B06.html">← B06 Agent 评估</a><a href="B08.html">B08 错误恢复与幂等 →</a></nav>
+</div>
+<script src="../assets/interview.js"></script>
+</body>
+</html>

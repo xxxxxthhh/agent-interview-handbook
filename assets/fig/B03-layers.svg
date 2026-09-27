@@ -1,0 +1,49 @@
+<svg viewBox="0 0 760 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="上下文按稳定度分层，以及易变字段放在前缀时缓存为什么整段失效">
+  <!-- 正确排布 -->
+  <text x="20" y="24" class="lbl">按稳定度排序：越不变越靠前，新内容只往后追加</text>
+
+  <rect x="20" y="40" width="96" height="56" rx="6" fill="var(--alloc)"/>
+  <text x="68" y="63" class="onfill" text-anchor="middle">system</text>
+  <text x="68" y="81" class="onfill" text-anchor="middle">8k</text>
+  <rect x="120" y="40" width="130" height="56" rx="6" fill="var(--alloc)"/>
+  <text x="185" y="63" class="onfill" text-anchor="middle">工具定义</text>
+  <text x="185" y="81" class="onfill" text-anchor="middle">12k · 顺序固定</text>
+  <rect x="254" y="40" width="96" height="56" rx="6" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="302" y="63" class="lbl" text-anchor="middle">钉住块</text>
+  <text x="302" y="81" class="mn" text-anchor="middle">目标 · 验收</text>
+  <rect x="354" y="40" width="90" height="56" rx="6" fill="var(--card)" stroke="var(--line)"/>
+  <text x="399" y="63" class="lbl" text-anchor="middle">压缩摘要</text>
+  <text x="399" y="81" class="mn" text-anchor="middle">带版本</text>
+  <rect x="448" y="40" width="190" height="56" rx="6" fill="var(--free)" opacity=".55"/>
+  <text x="543" y="63" class="lbl" text-anchor="middle">历史观察（只追加）</text>
+  <text x="543" y="81" class="mn" text-anchor="middle">大结果留摘要 · 按需受控留存</text>
+  <rect x="642" y="40" width="98" height="56" rx="6" fill="var(--waste-soft)" stroke="var(--waste)" stroke-width="2"/>
+  <text x="691" y="63" class="lbl" text-anchor="middle">当前轮</text>
+  <text x="691" y="81" class="mn" text-anchor="middle">时间等易变字段</text>
+
+  <line x1="20" y1="110" x2="636" y2="110" stroke="var(--alloc)" stroke-width="3"/>
+  <text x="20" y="130" class="mn">上一次调用已经见过的前缀 → 可命中缓存（若服务按前缀匹配）</text>
+  <line x1="642" y1="110" x2="740" y2="110" stroke="var(--waste)" stroke-width="3"/>
+  <text x="740" y="130" class="mn" text-anchor="end">新增部分</text>
+
+  <!-- 错误排布 -->
+  <text x="20" y="178" class="lbl">把时间戳写进 system：第一个字节就变了，后面全部失效</text>
+  <rect x="20" y="194" width="78" height="56" rx="6" fill="var(--waste-soft)" stroke="var(--waste)" stroke-width="2"/>
+  <text x="59" y="217" class="lbl" text-anchor="middle">时间戳</text>
+  <text x="59" y="235" class="mn" text-anchor="middle">每轮都变</text>
+  <rect x="102" y="194" width="638" height="56" rx="6" fill="var(--card)" stroke="var(--waste)" stroke-dasharray="6 5"/>
+  <text x="421" y="217" class="lbl" text-anchor="middle">system · 工具定义 · 钉住块 · 摘要 · 历史 · 当前轮</text>
+  <text x="421" y="235" class="mn" text-anchor="middle">内容没变，但前缀已经对不上：整段按未命中计费，还可能重新写入缓存</text>
+  <line x1="20" y1="264" x2="740" y2="264" stroke="var(--waste)" stroke-width="3"/>
+
+  <!-- 图例 -->
+  <rect x="20" y="300" width="16" height="16" rx="3" fill="var(--alloc)"/>
+  <text x="44" y="313" class="sub">稳定前缀：逐字节不变</text>
+  <rect x="196" y="300" width="16" height="16" rx="3" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="220" y="313" class="sub">任务真值：钉住，账本有权威副本</text>
+  <rect x="436" y="300" width="16" height="16" rx="3" fill="var(--free)" opacity=".55"/>
+  <text x="460" y="313" class="sub">可重取观察</text>
+  <rect x="560" y="300" width="16" height="16" rx="3" fill="var(--waste-soft)" stroke="var(--waste)" stroke-width="2"/>
+  <text x="584" y="313" class="sub">易变：只放末尾</text>
+  <text x="20" y="346" class="mn">长度为练习设定；缓存的匹配规则、有效期和计价以你所用服务的文档为准</text>
+</svg>

@@ -1,0 +1,97 @@
+<svg viewBox="0 0 760 452" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="浏览器 Agent 的数据流与控制流">
+  <defs>
+    <marker id="a05-arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--ink-soft)"/>
+    </marker>
+  </defs>
+
+  <!-- 不可信内容区：网页 -->
+  <rect x="392" y="22" width="360" height="92" rx="10" fill="var(--waste-soft)" stroke="var(--waste)" stroke-dasharray="6 5" opacity=".9"/>
+  <text x="404" y="16" class="mn">不可信数据区 · 网页内容只作数据</text>
+
+  <!-- 第一行：左→右 -->
+  <rect x="22" y="40" width="150" height="54" rx="7" fill="var(--card)" stroke="var(--line)"/>
+  <text x="97" y="63" class="lbl" text-anchor="middle">采购单</text>
+  <text x="97" y="81" class="sub" text-anchor="middle">型号 · 数量 · 地址</text>
+
+  <rect x="212" y="40" width="150" height="54" rx="7" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="287" y="63" class="lbl" text-anchor="middle">执行器登录</text>
+  <text x="287" y="81" class="sub" text-anchor="middle">凭据库注入，模型不可见</text>
+
+  <rect x="402" y="40" width="150" height="54" rx="7" fill="var(--card)" stroke="var(--line)"/>
+  <text x="477" y="63" class="lbl" text-anchor="middle">供应商门户</text>
+  <text x="477" y="81" class="sub" text-anchor="middle">3 家 · 会改版</text>
+
+  <rect x="592" y="40" width="150" height="54" rx="7" fill="var(--card)" stroke="var(--line)"/>
+  <text x="667" y="63" class="lbl" text-anchor="middle">观察</text>
+  <text x="667" y="81" class="sub" text-anchor="middle">精简 DOM，必要时截图</text>
+
+  <line x1="172" y1="67" x2="208" y2="67" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a05-arr)"/>
+  <line x1="362" y1="67" x2="398" y2="67" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a05-arr)"/>
+  <line x1="552" y1="67" x2="588" y2="67" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a05-arr)"/>
+
+  <!-- 每步循环 -->
+  <rect x="22" y="140" width="720" height="118" rx="10" fill="none" stroke="var(--ink-soft)" stroke-dasharray="3 4"/>
+  <text x="142" y="160" class="mn">× 3 家门户 · 每步：观察 → 提议 → 校验 → 执行 · 有步数上限</text>
+
+  <!-- 第二行：右→左 -->
+  <rect x="592" y="176" width="150" height="54" rx="7" fill="var(--alloc)" stroke="var(--alloc)"/>
+  <text x="667" y="199" class="lbl" text-anchor="middle" style="fill:var(--on-fill)">模型提议动作</text>
+  <text x="667" y="217" class="onfill" text-anchor="middle">有类型 · 无提交动作</text>
+
+  <rect x="312" y="176" width="170" height="54" rx="7" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="397" y="199" class="lbl" text-anchor="middle">动作校验</text>
+  <text x="397" y="217" class="sub" text-anchor="middle">白名单 · 未验证请求阻断</text>
+
+  <rect x="42" y="176" width="170" height="54" rx="7" fill="var(--card)" stroke="var(--line)"/>
+  <text x="127" y="199" class="lbl" text-anchor="middle">执行器操作</text>
+  <text x="127" y="217" class="sub" text-anchor="middle">按元素引用点击 / 填值</text>
+
+  <line x1="667" y1="94" x2="667" y2="172" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a05-arr)"/>
+  <line x1="592" y1="203" x2="486" y2="203" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a05-arr)"/>
+  <line x1="312" y1="203" x2="216" y2="203" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a05-arr)"/>
+  <!-- 动作作用回页面 -->
+  <polyline points="127,176 127,126 477,126 477,98" fill="none" stroke="var(--ink-soft)" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#a05-arr)"/>
+  <text x="140" y="122" class="mn">作用于页面 → 新的观察</text>
+
+  <text x="228" y="250" class="mn">⏸ 验证码 · 认不出的页面 · 超白名单 · 超步数 → 停下交人</text>
+
+  <!-- 第三行：左→右 -->
+  <rect x="22" y="300" width="132" height="54" rx="7" fill="var(--card)" stroke="var(--line)"/>
+  <text x="88" y="323" class="lbl" text-anchor="middle">代码比价</text>
+  <text x="88" y="341" class="sub" text-anchor="middle">报价卡带时间</text>
+
+  <rect x="166" y="300" width="132" height="54" rx="7" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="232" y="323" class="lbl" text-anchor="middle">提交前核对</text>
+  <text x="232" y="341" class="sub" text-anchor="middle">逐项对照采购单</text>
+
+  <rect x="310" y="300" width="132" height="54" rx="7" fill="var(--card)" stroke="var(--waste)" stroke-width="2.5"/>
+  <text x="376" y="323" class="lbl" text-anchor="middle">人工确认</text>
+  <text x="376" y="341" class="sub" text-anchor="middle">并排原页截图</text>
+
+  <rect x="454" y="300" width="132" height="54" rx="7" fill="var(--card)" stroke="var(--line)"/>
+  <text x="520" y="323" class="lbl" text-anchor="middle">执行器提交</text>
+  <text x="520" y="341" class="sub" text-anchor="middle">点一次 · 未知不重提</text>
+
+  <rect x="598" y="300" width="144" height="54" rx="7" fill="var(--card)" stroke="var(--line)"/>
+  <text x="670" y="323" class="lbl" text-anchor="middle">对账 + 审计</text>
+  <text x="670" y="341" class="sub" text-anchor="middle">订单历史 · 日志</text>
+
+  <line x1="88" y1="258" x2="88" y2="296" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a05-arr)"/>
+  <line x1="154" y1="327" x2="162" y2="327" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a05-arr)"/>
+  <line x1="298" y1="327" x2="306" y2="327" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a05-arr)"/>
+  <line x1="442" y1="327" x2="450" y2="327" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a05-arr)"/>
+  <line x1="586" y1="327" x2="594" y2="327" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a05-arr)"/>
+
+  <text x="22" y="384" class="mn">超过 5,000 元转经理批准 · 夜间批量只跑到「提交前核对」，早上重新登录复核价格与库存</text>
+
+  <!-- 图例 -->
+  <rect x="22" y="412" width="16" height="16" rx="3" fill="var(--alloc)"/>
+  <text x="46" y="425" class="sub">模型节点</text>
+  <rect x="140" y="412" width="16" height="16" rx="3" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="164" y="425" class="sub">不经过模型的检查</text>
+  <rect x="312" y="412" width="16" height="16" rx="3" fill="var(--card)" stroke="var(--waste)" stroke-width="2.5"/>
+  <text x="336" y="425" class="sub">人工放行</text>
+  <rect x="430" y="412" width="16" height="16" rx="3" fill="var(--waste-soft)" stroke="var(--waste)" stroke-dasharray="4 3"/>
+  <text x="454" y="425" class="sub">不可信数据区</text>
+</svg>

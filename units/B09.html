@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>B09 延迟与成本 · Agent 设计面试手册</title>
+<meta name="description" content="Latency and cost under SLA">
+<link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Noto+Sans+SC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Noto+Sans+SC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"></noscript>
+<link rel="stylesheet" href="../assets/handbook.css">
+<link rel="stylesheet" href="../assets/interview.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+<button class="theme-toggle" type="button" aria-label="切换深色/浅色模式" title="切换深色/浅色模式">
+  <span class="moon" aria-hidden="true">🌙</span><span class="sun" aria-hidden="true">☀️</span>
+</button>
+<div class="wrap">
+<nav class="crumb"><a href="../index.html">← 目录</a> · Part B · 横切深挖</nav>
+<main data-unit="B09" data-kind="B">
+<header class="ch">
+  <div class="blockrow" aria-hidden="true"><span class=""></span><span class="w"></span><span class=""></span><span class=""></span><span class="w"></span><span class=""></span><span class="f"></span><span class=""></span><span class="w"></span><span class="f"></span></div>
+  <div class="kicker">Part B · 横切深挖 · B09 </div>
+  <h1>Latency and cost under SLA<span class="zh">延迟与成本</span></h1>
+  <div class="meta">
+    
+    <span>口述 <b>2 min</b></span>
+    <span>追问 <b>7 层</b></span>
+    <span>适合 <b>垂直 Agent 研发, FDE, Solutions</b></span>
+  </div>
+</header>
+<section id="prompt">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Prompt 题面</span></div>
+<h2>先想清楚再开口</h2>
+<div data-prompt><div class="callout prompt-card"><p>你讲完一个会调工具的 Agent，面试官接着问：「现在 p95 要 8 秒内出完整答案，下个季度预算还要砍掉 40%。你先动哪里？怎么证明质量没掉？」</p></div>
+<p>题面为本书自拟的训练题，不代表任何公司的真实面试题或真实系统。场景为虚构练习设定。</p></div>
+<h3>约束</h3><div class="tbl-scroll"><table><thead><tr><th>约束</th><th>取值（练习设定）</th></tr></thead><tbody><tr><td>系统</td><td>企业内部运营助手：每个请求先由模型规划，再调 2–4 个内部工具（查工单、查库存、查政策），最后由模型汇总作答</td></tr><tr><td>量</td><td>每天约 20,000 个请求，按 30 天计每月约 600,000 个</td></tr><tr><td>SLA</td><td>从提交到完整答案 p95 ≤ 8 秒；首字 p95 ≤ 2 秒</td></tr><tr><td>质量门槛</td><td>在现有分层评测集上，正确率与规则违反率都不能比现状差</td></tr><tr><td>安全</td><td>权限校验、输出校验不参与降级</td></tr><tr><td>成本</td><td>下季度模型费用预算比本季度少 40%</td></tr><tr><td>数据</td><td>已有每个请求的整轮 trace：各段耗时、每次调用的输入输出 token</td></tr></tbody></table></div><details class="reveal" data-reveal="twist"><summary>答到一半再点开：面试官补了一句</summary><div class="reveal-body"><p data-twist>「市场部要在月底做一次推广，那三天请求量是平时的 4 倍，预算不追加。」</p></div></details>
+</section>
+<section id="reference">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Answer 参考回答</span></div>
+<h2>先口答，再展开</h2>
+<div data-reference><details class="reveal" data-reveal="reference"><summary>展开参考回答</summary><div class="reveal-body"><h3>该先问的问题</h3><ol><li>SLA 量的是哪个时点——首字、首个有用内容，还是完整答案？按什么分层（意图、租户、是否峰值）？这决定优化目标和怎么验收。</li><li>质量门槛用哪套评测集、哪些指标？所有降本、提速方案都要过同一道门，否则省下的钱是拿质量换的。</li><li>预算限的是每请求、每租户还是每月总额？超了以后允许降级到什么程度，哪些东西绝不降级？</li><li>现在的 trace 里，时间和 token 各花在哪一步？整轮 p95 慢的请求有什么共同点？没有这张账，任何优化都是猜。</li><li>请求分布怎样：简单意图占多少？每次调用里不变的前缀（system prompt、工具定义）有多长？这决定路由和缓存能省多少。</li></ol><h3>一句话框架</h3><div class="frame" data-frame><p>先用整轮 trace 找出关键路径和钱花在哪一步，再在质量与安全门槛不动的前提下，比较「少走一步」和「每步更快」各能省多少；流式只改善体感，不缩短完成时间。</p></div><h3>设计取舍表</h3><div class="tbl-scroll"><table><thead><tr><th>设计点</th><th>采用</th><th>否决的备选</th><th>什么证据会让我改</th></tr></thead><tbody><tr><td>延迟怎么量</td><td>用同一请求的整轮 trace 统计 p50 / p95，按意图、租户、是否峰值分层；首字和完整答案分开记</td><td>各段 p95 相加当整轮 p95；只看平均延迟</td><td>某一层样本太少、区间太宽时，先合并层或延长观测窗口，再下结论</td></tr><tr><td>关键路径</td><td>画出工具调用的依赖图：互不依赖的调用并行，有依赖的保持串行；能预判的查询在身份确认后预取</td><td>全部串行；或者不管依赖全部并行（重复查询、可能在授权前就发请求）</td><td>并行后下游限流或尾延迟明显上升时，限制并发度，只对最慢的几个分支并行</td></tr><tr><td>模型往返次数</td><td>一次规划出多个独立的工具调用，少一次模型往返；确定性步骤（格式化、权限判断）移出模型循环</td><td>每一步只让模型调一个工具再回来想</td><td>评测显示合并规划后错误率超出门槛，退回分步规划</td></tr><tr><td>模型路由</td><td>小模型先处理可分类的简单意图，按规则或置信度升级到大模型；路由器本身有评测，误路由的代价计入成本</td><td>全用大模型；或者全换小模型</td><td>分层评测里某类意图走小模型后质量低于门槛，就把这类意图固定路由到大模型</td></tr><tr><td>缓存</td><td>前缀按稳定程度排序：system prompt、工具定义在前且字节不变；用户信息、检索结果、进度往后追加。命中率 c 和缓存读取计价比 r 都当参数，按实测填</td><td>在 system prompt 里放时间戳或用户信息；每次重排工具顺序</td><td>实测命中率长期很低（前缀太短，或请求间隔超过缓存有效期），就不再为缓存牺牲 prompt 结构</td></tr><tr><td>流式输出</td><td>最终答案流式输出，改善首字；工具结果没回来之前，只给如实的进度提示</td><td>用流式掩盖慢的完成时间；把未校验的动作结论先流给用户</td><td>用户侧数据显示首字改善后放弃率没降，说明体感瓶颈在完成时间，回到关键路径上优化</td></tr><tr><td>成本上限与降级</td><td>每请求设模型调用次数和 token 上限，月度预算按日告警；超限时按事先定好的顺序降级：压缩上下文 → 小模型 → 只返回检索结果并提示转人工。每一层降级都要按意图预先过质量门槛，哪类意图在哪一层不达标，就对它直接排队、限流或转人工，而不是降级。权限与输出校验不降级</td><td>超预算直接截断输出；或关掉校验步骤来省钱</td><td>降级后质量回归超出门槛，改为排队或限流，而不是继续降级</td></tr></tbody></table></div></div></details></div>
+</section>
+<section id="oral">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Two-minute English 口述</span></div>
+<h2>两分钟，先结论后展开</h2>
+<div data-oral><div class="timer" data-timer data-seconds="120" hidden><span class="t-label">口述计时</span><span class="t-read" aria-live="polite">02:00</span><span class="t-bar"><span></span></span><button type="button" data-act="toggle">开始</button><button type="button" data-act="reset">重置</button></div><details class="reveal" data-reveal="english"><summary>展开 2 分钟英文口述稿</summary><div class="reveal-body"><p>I'd start from the trace, not from the model price. For each request I want one end-to-end trace, so I can see the critical path and where the tokens go. Adding up per-step p95s doesn't give you the end-to-end p95, so I measure the whole request, split by intent and tenant, and track first token and full answer separately.</p>
+<p>Then I compare two kinds of wins: fewer steps and faster steps. Fewer steps usually wins — plan independent tool calls in one pass, run them in parallel, and move deterministic work out of the model loop. Faster steps means routing simple intents to a smaller model, with escalation rules and its own evaluation.</p>
+<p>For cost, the biggest lever is often the stable prefix. Keep the system prompt and tool definitions byte-identical at the front so they can be cached, and append everything that changes. I treat the hit rate and cache pricing as parameters and fill them from real usage data.</p>
+<p>Streaming helps perceived latency, not completion time, and it should never stream an unverified action.</p>
+<p>Every change has to pass the same layered eval. And there's a written degradation order for budget overruns — shorter context, smaller model, then retrieval only — but permission and output checks never degrade.</p></div></details></div>
+</section>
+<section id="followups">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Follow-ups 追问</span></div>
+<h2>一层一层往下问</h2>
+<ol class="followups" data-followups><li data-layer="1"><div class="fq"><span class="qtype">为何不用备选</span>为什么不直接全换成更便宜、更快的小模型？</div><details class="reveal" data-reveal="f1"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>单价降了，但质量可能静默回归：简单意图没问题，复杂意图出错，总的正确率被平均掉了，要看分层评测。</li><li>路由是折中：小模型处理可分类的简单意图，按规则或置信度升级；误路由要算两种代价——简单题被送去大模型是浪费钱，复杂题被留在小模型是质量事故。</li><li>触发改变的证据：分层评测里，某类意图走小模型后仍在门槛之上，才把它划给小模型。</li></ul></div></details></li><li data-layer="2"><div class="fq"><span class="qtype">需求变化</span>预算砍 40%，SLA 不变，你按什么顺序动手？</div><details class="reveal" data-reveal="f2"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>先算账：用 trace 看 token 花在哪一类调用、哪一段前缀、哪一类意图。钱花在哪里，就先动哪里。</li><li>按「风险低、收益可测」排序：稳定前缀以提高缓存命中 → 合并规划减少往返 → 裁剪工具返回的冗余字段 → 路由简单意图。每一步都单独过评测门槛，并记录它实际省了多少。</li><li>最后才是降级策略，而且要说清降级后的质量是多少，由业务方签认，不在上线后才发现。</li><li>月底推广的 4 倍流量，要先确认是总额预算还是单价预算。总额不变时，把推广期的量并进当月总量，和砍 40% 后的月上限相减（见估算）：只靠缓存几乎没有余量，缓存命中率掉下来还会超线，所以合并规划要在推广前上线，并事先定好超线时哪些意图排队或限流，而不是临时降质。</li></ul></div></details></li><li data-layer="3"><div class="fq"><span class="qtype">失败反证</span>上线并行工具调用后，p50 降了，p95 反而升了。为什么？</div><details class="reveal" data-reveal="f3"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>并行后整轮要等最慢的那个分支：分支越多，碰到某一个分支慢的概率越高，尾延迟被放大。</li><li>并发请求可能触发下游限流，429 之后的重试又把尾延迟推高。</li><li>处理：给每个分支设超时，超时就带着部分结果作答并说明缺什么；限制并发度；只对幂等的只读查询做对冲请求（hedged request）；按分支统计尾延迟，找出真正拖后腿的那个。</li></ul></div></details></li><li data-layer="4"><div class="fq"><span class="qtype">流式</span>首字已经很快了，用户还是说慢。</div><details class="reveal" data-reveal="f4"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>流式只改善首字，不缩短完成时间；如果答案依赖工具结果，工具回来之前能流出的只是进度提示。</li><li>要量「首个有用内容」的时间：带上查询结果或结论的那一刻，而不只是第一个字。</li><li>进度提示要如实（「正在查询工单系统」），不能先流出一个还没被工具结果证实的结论。</li></ul></div></details></li><li data-layer="5"><div class="fq"><span class="qtype">缓存</span>缓存命中率只有 20%，为什么？怎么查？</div><details class="reveal" data-reveal="f5"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>最常见的原因是前缀不稳定：system prompt 里有时间戳、用户名或每次不同的检索结果；工具定义的顺序每次不同；多个版本的 prompt 同时在线。</li><li>另一类原因是请求太稀疏：同一前缀的两次请求间隔超过缓存有效期（具体时长看所用平台，当参数处理）。</li><li>查法：从调用返回的用量字段统计缓存读取与写入的 token，按 prompt 版本和租户分组；找出前缀里第一个变化的位置，把变化的内容挪到后面。</li></ul></div></details></li><li data-layer="6"><div class="fq"><span class="qtype">成本上限</span>某个请求烧掉了平均值 50 倍的 token。</div><details class="reveal" data-reveal="f6"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>常见原因：模型在工具之间打转，或者某个工具返回了巨大的结果被整段塞回上下文。</li><li>每请求设模型调用次数和 token 上限；工具结果分页或裁剪，只返回需要的字段。</li><li>触顶时停下，返回已有的部分结果并说明原因，同时告警；按租户统计异常请求的比例。</li><li>省钱不能关掉权限或输出校验：这些检查是安全门槛，不在降级顺序里。</li></ul></div></details></li><li data-layer="7"><div class="fq"><span class="qtype">评估</span>路由器本身怎么评估？</div><details class="reveal" data-reveal="f7"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>在带意图标签的请求集上看路由的混淆矩阵：哪些复杂请求被送去了小模型，哪些简单请求被送去了大模型。</li><li>按路线分别报告质量：小模型那一路的正确率要单独过门槛，不能被大模型那一路的高分平均掉。</li><li>新的路由规则先在影子模式下跑：只记录「会被送到哪里」，不改变实际路由，和现行版本对比后再切换。</li></ul></div></details></li></ol><button type="button" class="next-layer" data-act="next-layer" hidden>下一层追问 ↓</button>
+</section>
+<section id="failures">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Failure Modes 失败模式</span></div>
+<h2>这些地方最容易栽</h2>
+<div class="fail-grid"><div class="case fail-card"><div class="case-head"><span class="cell"></span>把分段 p95 相加当成整轮 p95</div><div class="case-body"><ul><li><b>症状</b>：设计评审时各段预算加起来刚好卡在 SLA 以内，上线后整轮 p95 却超标；或者反过来，预算看着超了，实际大多数请求没事。</li><li><b>根因</b>：各段的慢请求未必落在同一个请求上，p95 不能相加；而并行分支会让整轮等最慢的那个，尾部被放大。</li><li><b>防线</b>：用同一请求的整轮 trace 统计 p50 / p95，并按意图和是否峰值分层；分段预算只用来找关键路径，不用来宣布达标。</li></ul></div></div><div class="case fail-card"><div class="case-head"><span class="cell"></span>降本后质量静默回归</div><div class="case-body"><ul><li><b>症状</b>：成本降下来了，整体正确率只掉了一点点，几周后某类复杂请求的投诉集中出现。</li><li><b>根因</b>：只看了总体指标；小模型或裁剪上下文对复杂意图的影响被简单意图的高分平均掉了。</li><li><b>防线</b>：每个降本改动都过分层评测，按意图报告；路由按路线分别过门槛；上线后按意图盯人工推翻率和投诉。</li></ul></div></div><div class="case fail-card"><div class="case-head"><span class="cell"></span>并行放大尾延迟</div><div class="case-body"><ul><li><b>症状</b>：p50 明显下降，p95 和 p99 反而上升；下游服务开始出现限流错误。</li><li><b>根因</b>：整轮等最慢的分支；并发打到下游触发限流，重试让尾部更长。</li><li><b>防线</b>：分支超时并带部分结果作答；限制并发度；只对幂等的只读查询做对冲请求；按分支统计尾延迟。</li></ul></div></div></div>
+</section>
+<section id="estimate">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Estimate 估算</span></div>
+<h2>带着量纲算一遍</h2>
+<p><b>问：预算砍 40%，靠缓存、合并规划和路由分别能省多少？请求量涨到 4 倍呢？</b></p>
+<p>假设（练习设定，全部待实测）：每月 600,000 个请求；现状每个请求 3 次大模型调用（规划、看完工具结果再想一次、汇总）；每次调用输入 = 6k tokens 稳定前缀 + 2k tokens 变化内容，输出约 400 tokens。缓存命中率 c = 0.8，缓存读取的计价是正常输入的 r = 0.1 倍。60% 的请求是简单意图，可走小模型，小模型单价是大模型的 s = 0.2 倍；其中 10% 被小模型处理后仍需升级到大模型（两边都付费）。只比较输入 token，折算成「大模型等价 token」。</p>
+<pre class="formula calc"><code>每请求输入（大模型等价）
+  现状       3 次 × (6k + 2k)                        = 24.0k
+  + 缓存     前缀折算 6k × (0.8 × 0.1 + 0.2) = 1.68k
+             3 次 × (1.68k + 2k)                     = 11.04k   （−54%）
+  + 合并规划 2 次 × 3.68k                            = 7.36k    （−69%）
+  + 路由     7.36k × (60% × 0.2 + 60% × 10% + 40%)
+           = 7.36k × 0.58                            = 4.27k    （−82%）
+
+每月输入（大模型等价）
+  现状       600,000 × 24.0k  = 14.4B
+  缓存+合并  600,000 × 7.36k  = 4.42B
+
+推广期 3 天 × 4 倍流量（每天 20,000 → 80,000）
+  多出来的请求   3 × 60,000               = 180,000 个
+  当月请求总量   600,000 + 180,000         = 780,000 个
+
+当月上限：砍 40% 后   14.4B × 60%          = 8.64B
+  缓存+合并        780,000 × 7.36k   = 5.74B   余量 2.90B
+  只用缓存         780,000 × 11.04k  = 8.61B   余量 0.03B
+  命中率 30%+合并  780,000 × 12.76k  = 9.95B   超出 1.31B</code></pre>
+<p><b>怎么读</b>：在这组假设下，平常月份只靠缓存就能把每请求输入降 54%，超过要求的 40%；但推广期要把量并进当月总量再和上限相减。含推广的当月，只靠缓存只剩 0.03B 的余量，几乎贴线；加上合并规划还有 2.90B 余量；如果推广期缓存命中率掉到 30%，即使合并规划也会超出 1.31B，要事先定好超线时哪些意图排队或限流。路由是再往下的余量，必须先过质量门槛才算数。<b>这只是输入侧的筛选</b>：输出 token（现状每请求约 1.2k，合并规划后约 0.8k）、缓存写入、工具与检索服务、基础设施的成本都没算；要证明模型费用预算达标，得用全口径公式：月费用 = （总输入 − 缓存读取 − 缓存写入）× 普通输入单价 + 缓存读取 × 读取单价 + 缓存写入 × 写入单价 + 输出 × 输出单价，三类输入互斥计数；若所用服务把写入价定义为附加费，就只加它相对普通输入价的差额。再加工具与基础设施费用，用实测值代入。</p>
+<p><b>敏感性</b>：命中率只有 c = 0.3 时，前缀折算为 6k × (0.3 × 0.1 + 0.7) = 4.38k，只靠缓存是 3 × 6.38k = 19.14k（−20%），不够；加上合并规划是 2 × 6.38k = 12.76k（−47%），刚好过线。小模型单价比 s = 0.5 时，路由后为 7.36k × (0.3 + 0.06 + 0.4) = 5.59k，路由的收益明显缩小。结论对 c 和 s 都很敏感，先测它们再定方案；尤其要测推广期流量上来后的命中率，而不是只测平常月份。</p>
+<p><b>怎么实测</b>：从调用返回的用量字段统计每次调用的输入、缓存读取、缓存写入和输出 token；按 prompt 版本和意图分组算实际命中率；在评测集上跑合并规划和路由的版本，记录质量与每请求 token；向财务确认 r、s 和大模型单价，用实测值替换上面每个假设，再重算。</p>
+</section>
+<section id="refs">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Cross-references 回链</span></div>
+<h2>原理去哪里补</h2>
+<ul class="refs"><li><a href="A02.html"><span class="ref-tag">A02</span></a> 深度研究 Agent：子问题并行与上下文隔离对 token 的影响</li><li><a href="A03.html"><span class="ref-tag">A03</span></a> 客服 Agent：语音变体的单轮延迟预算与 p95 口径</li><li><a href="A06.html"><span class="ref-tag">A06</span></a> 长任务 goal Agent：预算上限、打转检测与缓存友好的 prompt 排序</li><li><a href="B03.html"><span class="ref-tag">B03</span></a> 上下文工程与缓存：稳定前缀、压缩与裁剪</li><li><a href="B06.html"><span class="ref-tag">B06</span></a> Agent 评估：降本改动要过的分层评测门槛</li><li><a href="https://xxxxxthhh.github.io/ai-systems-handbook/chapters/2-1-latency-metrics.html" rel="noopener"><span class="ref-tag">AI 2.1</span></a> TTFT、TPOT、端到端延迟，以及延迟与吞吐的取舍 <span class="ref-book">· AI 系统工程手册</span></li><li><a href="https://xxxxxthhh.github.io/ai-systems-handbook/chapters/2-2-prompt-caching.html" rel="noopener"><span class="ref-tag">AI 2.2</span></a> 前缀缓存原理，以及它对 system prompt 设计的反向约束 <span class="ref-book">· AI 系统工程手册</span></li><li><a href="https://xxxxxthhh.github.io/ai-systems-handbook/chapters/2-3-model-routing.html" rel="noopener"><span class="ref-tag">AI 2.3</span></a> 模型分级、级联与回退 <span class="ref-book">· AI 系统工程手册</span></li><li><a href="https://xxxxxthhh.github.io/ai-systems-handbook/chapters/2-4-capacity-planning.html" rel="noopener"><span class="ref-tag">AI 2.4</span></a> 从流量画像到预算的估算方法 <span class="ref-book">· AI 系统工程手册</span></li><li><a href="https://xxxxxthhh.github.io/ai-systems-handbook/chapters/6-5-degradation-fallback.html" rel="noopener"><span class="ref-tag">AI 6.5</span></a> 上游故障、限流与降级策略 <span class="ref-book">· AI 系统工程手册</span></li><li><a href="https://xxxxxthhh.github.io/ccdv-handbook/chapters/ch07.html" rel="noopener"><span class="ref-tag">DV ch07</span></a> 模型选型与成本 <span class="ref-book">· CCDV 备考手册</span></li></ul>
+</section>
+<section id="mine">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Your Turn 本人填写</span></div>
+<h2>只写真实经历</h2>
+<div class="mine" data-mine><p>只写真实经历，没有就空着，不编。公开版只有空表；填好的版本存在自己的私用练习记录里。</p>
+<div class="tbl-scroll"><table><thead><tr><th>场景</th><th>当时发生了什么</th><th>我亲自做了什么（团队 / AI 做了什么）</th><th>怎么发现的，结果和证据</th><th>之后怎么防</th></tr></thead><tbody><tr><td>延迟或成本超出预期，后来找到了真正的原因</td><td></td><td></td><td></td><td></td></tr><tr><td>为了省钱或提速做的改动，影响了质量</td><td></td><td></td><td></td><td></td></tr></tbody></table></div></div><h3>练习记录</h3><div class="mine"><div class="tbl-scroll"><table><thead><tr><th>日期</th><th>口述用时</th><th>脱稿？</th><th>答不上的追问</th><th>下一轮修正（≤2）</th></tr></thead><tbody><tr><td></td><td></td><td></td><td></td><td></td></tr></tbody></table></div></div>
+</section>
+</main>
+<nav class="next"><a href="B08.html">← B08 错误恢复与幂等</a><a href="B10.html">B10 上线后的质量回溯 →</a></nav>
+</div>
+<script src="../assets/interview.js"></script>
+</body>
+</html>

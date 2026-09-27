@@ -1,0 +1,91 @@
+<svg viewBox="0 0 760 452" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="客服 Agent 的数据流与控制流">
+  <defs>
+    <marker id="a03-arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--ink-soft)"/>
+    </marker>
+  </defs>
+
+  <!-- 不可信输入区：用户说的话与识别结果 -->
+  <rect x="8" y="22" width="554" height="92" rx="10" fill="var(--waste-soft)" stroke="var(--waste)" stroke-dasharray="6 5" opacity=".9"/>
+  <text x="22" y="16" class="mn">不可信输入区 · 用户说的话不带任何权限</text>
+
+  <!-- 第一行：理解（左→右） -->
+  <rect x="22" y="40" width="150" height="54" rx="7" fill="var(--card)" stroke="var(--line)"/>
+  <text x="97" y="63" class="lbl" text-anchor="middle">用户消息</text>
+  <text x="97" y="81" class="sub" text-anchor="middle">文字 / 语音</text>
+
+  <rect x="212" y="40" width="150" height="54" rx="7" fill="var(--card)" stroke="var(--ink-soft)" stroke-dasharray="4 3"/>
+  <text x="287" y="63" class="lbl" text-anchor="middle">语音识别</text>
+  <text x="287" y="81" class="sub" text-anchor="middle">仅语音渠道</text>
+
+  <rect x="402" y="40" width="150" height="54" rx="7" fill="var(--alloc)" stroke="var(--alloc)"/>
+  <text x="477" y="63" class="lbl" text-anchor="middle" style="fill:var(--on-fill)">理解</text>
+  <text x="477" y="81" class="onfill" text-anchor="middle">意图 + 槽位</text>
+
+  <rect x="592" y="40" width="150" height="54" rx="7" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="667" y="63" class="lbl" text-anchor="middle">身份验证</text>
+  <text x="667" y="81" class="sub" text-anchor="middle">登录态 / 验证码</text>
+
+  <line x1="172" y1="67" x2="208" y2="67" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a03-arr)"/>
+  <line x1="362" y1="67" x2="398" y2="67" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a03-arr)"/>
+  <line x1="552" y1="67" x2="588" y2="67" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a03-arr)"/>
+
+  <!-- 固定流程框 -->
+  <rect x="22" y="140" width="720" height="118" rx="10" fill="none" stroke="var(--ink-soft)" stroke-dasharray="3 4"/>
+  <text x="36" y="160" class="mn">每类意图一个固定流程 · 查单 / 退换货 / 退款</text>
+
+  <!-- 第二行：判定（右→左） -->
+  <rect x="582" y="176" width="150" height="54" rx="7" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="657" y="199" class="lbl" text-anchor="middle">只读工具</text>
+  <text x="657" y="217" class="sub" text-anchor="middle">按已验证身份取数</text>
+
+  <rect x="312" y="176" width="170" height="54" rx="7" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="397" y="199" class="lbl" text-anchor="middle">规则引擎</text>
+  <text x="397" y="217" class="sub" text-anchor="middle">资格预判 · 上限 · 次数</text>
+
+  <rect x="42" y="176" width="170" height="54" rx="7" fill="var(--card)" stroke="var(--waste)" stroke-width="2.5"/>
+  <text x="127" y="199" class="lbl" text-anchor="middle">复述并确认</text>
+  <text x="127" y="217" class="sub" text-anchor="middle">绑定订单 + 金额</text>
+
+  <line x1="667" y1="94" x2="667" y2="172" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a03-arr)"/>
+  <line x1="582" y1="203" x2="486" y2="203" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a03-arr)"/>
+  <line x1="312" y1="203" x2="216" y2="203" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a03-arr)"/>
+
+  <text x="228" y="250" class="mn">关键数字回读 · 语音低置信 → 按键 / 短信</text>
+
+  <!-- 第三行：执行与回复（左→右） -->
+  <rect x="22" y="300" width="150" height="54" rx="7" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="97" y="323" class="lbl" text-anchor="middle">账本原子提交</text>
+  <text x="97" y="341" class="sub" text-anchor="middle">operation_id · 占额度</text>
+
+  <rect x="212" y="300" width="150" height="54" rx="7" fill="var(--alloc)" stroke="var(--alloc)"/>
+  <text x="287" y="323" class="lbl" text-anchor="middle" style="fill:var(--on-fill)">生成回复</text>
+  <text x="287" y="341" class="onfill" text-anchor="middle">以系统状态为准</text>
+
+  <rect x="402" y="300" width="150" height="54" rx="7" fill="var(--card)" stroke="var(--line)"/>
+  <text x="477" y="323" class="lbl" text-anchor="middle">输出</text>
+  <text x="477" y="341" class="sub" text-anchor="middle">文字 / 语音合成</text>
+
+  <rect x="592" y="300" width="150" height="54" rx="7" fill="var(--card)" stroke="var(--waste)" stroke-width="2.5"/>
+  <text x="667" y="323" class="lbl" text-anchor="middle">人工坐席</text>
+  <text x="667" y="341" class="sub" text-anchor="middle">附脱敏交接包</text>
+
+  <line x1="97" y1="230" x2="97" y2="296" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a03-arr)"/>
+  <line x1="172" y1="327" x2="208" y2="327" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a03-arr)"/>
+  <line x1="362" y1="327" x2="398" y2="327" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a03-arr)"/>
+  <line x1="667" y1="258" x2="667" y2="296" stroke="var(--waste)" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#a03-arr)"/>
+  <text x="655" y="282" class="mn" text-anchor="end">规则触发：要求 / 政策外 / 超限 / 两轮无进展</text>
+
+  <!-- 时效 -->
+  <text x="22" y="384" class="mn">⏱ 语音：用户说完到开口 p95 ≤ 1.5 秒（练习目标，整轮实测）· 查单在身份验证后预取 · 结果未知 → 按 ID 查询</text>
+
+  <!-- 图例 -->
+  <rect x="22" y="412" width="16" height="16" rx="3" fill="var(--alloc)"/>
+  <text x="46" y="425" class="sub">模型节点</text>
+  <rect x="130" y="412" width="16" height="16" rx="3" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="154" y="425" class="sub">不经过模型的检查</text>
+  <rect x="300" y="412" width="16" height="16" rx="3" fill="var(--card)" stroke="var(--waste)" stroke-width="2.5"/>
+  <text x="324" y="425" class="sub">用户确认 / 人工</text>
+  <rect x="448" y="412" width="16" height="16" rx="3" fill="var(--waste-soft)" stroke="var(--waste)" stroke-dasharray="4 3"/>
+  <text x="472" y="425" class="sub">不可信输入区</text>
+</svg>

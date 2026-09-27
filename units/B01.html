@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>B01 编排光谱 · Agent 设计面试手册</title>
+<meta name="description" content="Workflow, agent, or multi-agent?">
+<link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Noto+Sans+SC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Noto+Sans+SC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"></noscript>
+<link rel="stylesheet" href="../assets/handbook.css">
+<link rel="stylesheet" href="../assets/interview.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+<button class="theme-toggle" type="button" aria-label="切换深色/浅色模式" title="切换深色/浅色模式">
+  <span class="moon" aria-hidden="true">🌙</span><span class="sun" aria-hidden="true">☀️</span>
+</button>
+<div class="wrap">
+<nav class="crumb"><a href="../index.html">← 目录</a> · Part B · 横切深挖</nav>
+<main data-unit="B01" data-kind="B">
+<header class="ch">
+  <div class="blockrow" aria-hidden="true"><span class=""></span><span class="w"></span><span class=""></span><span class=""></span><span class="w"></span><span class=""></span><span class="f"></span><span class=""></span><span class="w"></span><span class="f"></span></div>
+  <div class="kicker">Part B · 横切深挖 · B01 <span class="pri">P0</span></div>
+  <h1>Workflow, agent, or multi-agent?<span class="zh">编排光谱</span></h1>
+  <div class="meta">
+    
+    <span>口述 <b>2 min</b></span>
+    <span>追问 <b>6 层</b></span>
+    <span>适合 <b>FDE, Solutions, 垂直 Agent 研发</b></span>
+  </div>
+</header>
+<section id="prompt">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Prompt 题面</span></div>
+<h2>先想清楚再开口</h2>
+<div data-prompt><div class="callout prompt-card"><p>你刚讲完一套合同审查方案：固定流水线，模型只做逐条目判定。面试官追问：「现在大家都在做 multi-agent，你为什么不用？什么情况下你会用？」</p></div>
+<p>题面为本书自拟的训练题，不代表任何公司的真实面试题或真实系统。</p></div>
+<h3>约束</h3><div class="tbl-scroll"><table><thead><tr><th>约束</th><th>取值（练习设定）</th></tr></thead><tbody><tr><td>场景 A：合同审查</td><td>40 个固定清单条目，每份合同逐条判定，结论要可追溯、签字人放行</td></tr><tr><td>场景 B：供应商尽调（面试官顺手加的）</td><td>给一个供应商名字，查工商信息、制裁名单、负面新闻、财报、分包关系；查到分包商时还要继续查分包商</td></tr><tr><td>反馈</td><td>场景 A 有专家标注的评测集；场景 B 只有部分可自动核对的事实（名单命中、注册信息）</td></tr><tr><td>预算与时延</td><td>场景 A 每份 2 个工作日内出意见；场景 B 希望 10 分钟内出初稿</td></tr><tr><td>错误代价</td><td>两个场景都是漏报比误报贵</td></tr></tbody></table></div><details class="reveal" data-reveal="twist"><summary>答到一半再点开：面试官补了一句</summary><div class="reveal-body"><p data-twist>尽调上线了一个 multi-agent 版本后，合规官抱怨：同一份报告里，「制裁」和「负面新闻」两个子 Agent 对同一家分包商的结论互相矛盾。</p></div></details>
+</section>
+<section id="reference">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Answer 参考回答</span></div>
+<h2>先口答，再展开</h2>
+<div data-reference><details class="reveal" data-reveal="reference"><summary>展开参考回答</summary><div class="reveal-body"><h3>该先问的问题</h3><ol><li>步骤能不能事先写成代码？分支是有限、已知的，还是边做边发现的？这决定路径由代码定还是由模型定。</li><li>每一步做得对不对，有没有外部反馈（测试、检查器、工具返回、可核对的事实）？没有反馈的循环只是在猜。</li><li>子任务之间是否独立？能否各自在一个干净的上下文里完成？结果怎么合并，合并错了谁能发现？</li><li>时延和预算哪个更紧？并行省下的是墙钟时间，未必省 token。</li><li>结论要不要可审计、可复现？路径越开放，审计和评测越贵。</li></ol><h3>一句话框架</h3><div class="frame" data-frame><p>代码能定的路径就用代码定；路径事先定不下、又有外部反馈时，才把控制权交给模型；只有子任务真能独立、合并成本可控时，才拆成多个 Agent。</p></div><h3>设计取舍表</h3><figure data-fig="B01-spectrum"><svg viewBox="0 0 560 500" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="编排形态的两条轴：子任务怎么拆由谁决定，是否委派给能自主处理子任务的 worker">
+  <defs>
+    <marker id="b01-arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--ink-soft)"/>
+    </marker>
+  </defs>
+
+  <!-- 四个区域：左 = 代码拆子任务，右 = 模型拆子任务 / 定下一步；上 = 委派给自主 worker，下 = 不委派 -->
+  <rect x="60" y="20" width="240" height="185" fill="var(--alloc-soft)" opacity=".45"/>
+  <rect x="60" y="205" width="240" height="185" fill="var(--alloc-soft)" opacity=".9"/>
+  <rect x="300" y="20" width="240" height="185" fill="var(--waste-soft)" opacity=".95"/>
+  <rect x="300" y="205" width="240" height="185" fill="var(--waste-soft)" opacity=".5"/>
+  <line x1="300" y1="20" x2="300" y2="390" stroke="var(--ink-soft)" stroke-dasharray="5 4"/>
+  <line x1="60" y1="205" x2="540" y2="205" stroke="var(--ink-soft)" stroke-dasharray="5 4"/>
+
+  <!-- 轴 -->
+  <line x1="60" y1="390" x2="546" y2="390" stroke="var(--ink-soft)" stroke-width="2" marker-end="url(#b01-arr)"/>
+  <line x1="60" y1="390" x2="60" y2="14" stroke="var(--ink-soft)" stroke-width="2" marker-end="url(#b01-arr)"/>
+  <text x="180" y="414" class="lbl" text-anchor="middle" style="font-size:16px">代码拆子任务</text>
+  <text x="420" y="414" class="lbl" text-anchor="middle" style="font-size:16px">模型拆子任务</text>
+  <text x="300" y="438" class="sub" text-anchor="middle" style="font-size:14.5px">横轴：子任务怎么拆、下一步做什么，由谁决定</text>
+  <text x="40" y="298" class="lbl" text-anchor="middle" style="font-size:16px" transform="rotate(-90 40 298)">不委派</text>
+  <text x="40" y="112" class="lbl" text-anchor="middle" style="font-size:16px" transform="rotate(-90 40 112)">委派给自主 worker</text>
+
+  <!-- 左上：代码定子任务 · 自主 worker -->
+  <circle cx="84" cy="46" r="7" fill="var(--card)" stroke="var(--waste)" stroke-width="2.5"/>
+  <text x="98" y="51" class="lbl" style="font-size:16.5px">固定大纲内的子 Agent</text>
+  <text x="98" y="73" class="sub" style="font-size:14.5px">代码定子任务，</text>
+  <text x="98" y="92" class="sub" style="font-size:14.5px">worker 自己决定怎么查</text>
+
+  <!-- 右上：模型拆分 · 自主 worker -->
+  <circle cx="330" cy="46" r="7" fill="var(--waste)"/>
+  <text x="344" y="51" class="lbl" style="font-size:16.5px">多个自主 Agent</text>
+  <text x="344" y="73" class="sub" style="font-size:14.5px">模型拆分，worker 各自循环</text>
+
+  <!-- 跨界：Orchestrator-workers -->
+  <rect x="186" y="118" width="228" height="64" rx="8" fill="var(--card)" stroke="var(--waste)" stroke-width="2" stroke-dasharray="6 4"/>
+  <text x="300" y="143" class="lbl" text-anchor="middle" style="font-size:16.5px">Orchestrator-workers</text>
+  <text x="300" y="167" class="sub" text-anchor="middle" style="font-size:14.5px">代码定委派骨架，模型定子任务</text>
+
+  <!-- 左下：代码拆解 · 不委派（这四种不规定上下文是否共享） -->
+  <circle cx="84" cy="236" r="7" fill="var(--card)" stroke="var(--alloc)" stroke-width="2.5"/>
+  <text x="98" y="241" class="lbl" style="font-size:16.5px">Prompt chaining</text>
+  <circle cx="84" cy="270" r="7" fill="var(--card)" stroke="var(--alloc)" stroke-width="2.5"/>
+  <text x="98" y="275" class="lbl" style="font-size:16.5px">Routing</text>
+  <circle cx="84" cy="304" r="7" fill="var(--card)" stroke="var(--alloc)" stroke-width="2.5"/>
+  <text x="98" y="309" class="lbl" style="font-size:16.5px">Evaluator-optimizer</text>
+  <circle cx="84" cy="338" r="7" fill="var(--card)" stroke="var(--alloc)" stroke-width="2.5"/>
+  <text x="98" y="343" class="lbl" style="font-size:16.5px">Parallelization</text>
+  <text x="98" y="365" class="sub" style="font-size:14.5px">40 条目分片：多次独立调用</text>
+
+  <!-- 右下：模型定下一步 · 不委派 -->
+  <circle cx="330" cy="270" r="7" fill="var(--waste)"/>
+  <text x="344" y="275" class="lbl" style="font-size:16.5px">单 Agent 循环</text>
+  <text x="344" y="297" class="sub" style="font-size:14.5px">模型定下一步，自己做完</text>
+
+  <text x="60" y="466" class="mn" style="font-size:13px">顶层骨架（先做什么、何时汇总）常常仍由代码预设，横轴只看子任务这一层。</text>
+  <text x="60" y="488" class="mn" style="font-size:13px">上下文共享还是隔离是另一项实现选择，图中不表示。</text>
+</svg><figcaption>两条轴，各自独立选择。横轴：子任务怎么拆、下一步做什么，由代码决定还是由模型决定（只看子任务这一层；顶层骨架常常仍由代码预设）；纵轴：是否把子任务委派给能自主处理它的 worker。上下文共享还是隔离是另一项实现选择，图中不表示。五种 workflow 模式的命名来自下方的原始工程文章；它们在图中的位置，以及「固定大纲内的子 Agent」「单 Agent 循环」「多个自主 Agent」三格，是本书的解释。</figcaption></figure>
+<p>命名来源：原始工程文章 <a href="https://www.anthropic.com/engineering/building-effective-agents">Building effective agents</a>（2024-12-19）。文中把 workflow 定义为「通过预定义代码路径编排 LLM 与工具」，把 agent 定义为「由 LLM 动态决定自己的过程与工具使用」，并建议只在复杂度能带来可证明的收益时才增加它。注意该文把 orchestrator-workers 也列为 workflow：委派与汇总的骨架可以由代码预设，由一个中心 LLM 动态决定拆出哪些子任务、交给 worker 再汇总。所以要分两个粒度看「谁决定」——顶层骨架和子任务拆解可以由不同的一方决定；而「是否委派给能自主工作的 worker」又是另一个问题。</p>
+<p>下表前五行的「什么时候选」概括自该文；「单 Agent 循环」「多个自主 Agent」两行，以及各行的「代价」和「什么证据会让我换」，是本书的扩展。</p>
+<div class="tbl-scroll"><table><thead><tr><th>形态</th><th>什么时候选</th><th>代价 / 失败方式</th><th>什么证据会让我换</th></tr></thead><tbody><tr><td>Prompt chaining</td><td>任务能干净地拆成固定的几步，每步之间可以插一道程序检查</td><td>前一步的错误会一路传下去；步骤多了时延叠加</td><td>某一步经常需要回头重做，说明步骤不是真的固定</td></tr><tr><td>Routing</td><td>输入有几类明显不同的情况，分开处理效果更好（例如按合同类型走不同清单）</td><td>分错类就走错整条路；类别边界模糊时误路由集中出现</td><td>误路由率高，或新类别不断冒出来，改为「路由 + 通用兜底路径」</td></tr><tr><td>Parallelization</td><td>子任务互不依赖，可以分片同时做（逐条目判定）；或同一问题需要多次尝试投票提高把握</td><td>同一资料被每个分支重复发送时，总 token 会增加；各分支只拿自己那份、上下文更短时，也可能减少，要按输入、输出、缓存读写同口径实测。投票只在错误彼此独立时才有用</td><td>多次投票的结果高度一致却一起错，说明错误相关，投票没有增益</td></tr><tr><td>Evaluator-optimizer</td><td>有清楚的评价标准，且多改一轮能带来可量化的提升</td><td>评价标准模糊时会原地打转；评价者与生成者同模型时容易互相迁就</td><td>第二轮之后的提升接近零，就固定轮数上限或去掉这一环</td></tr><tr><td>Orchestrator-workers（代码定委派骨架，模型定子任务）</td><td>子任务是什么事先定不下，要由模型边看边拆（查到分包商才需要查分包商）；worker 可以是单次调用，也可以是能自主工作的子 Agent</td><td>拆分和合并都由模型做，出错更难定位；需要设拆分数量和深度上限</td><td>实际拆出来的子任务总是那几种，就把它们固化成代码路径</td></tr><tr><td>单 Agent 循环（本书扩展）</td><td>路径开放，但每一步都有外部反馈（工具返回、测试结果）</td><td>路径多，评测和复现更贵；需要步数、预算和停止条件</td><td>上下文经常溢出，或串行时延超标，且子任务确实独立时，考虑拆分</td></tr><tr><td>多个自主 Agent（本书扩展）</td><td>每个 worker 自己也要循环、决定下一步；子任务独立、各自需要大量上下文，并行能明显缩短时延，合并规则清楚</td><td>上下文割裂：隐含的判断和放弃过的路径不会传给其他 Agent；合并时的矛盾需要专门处理</td><td>同预算的公平对照里，单 Agent 的结果不差于它，就退回单 Agent</td></tr></tbody></table></div></div></details></div>
+</section>
+<section id="oral">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Two-minute English 口述</span></div>
+<h2>两分钟，先结论后展开</h2>
+<div data-oral><div class="timer" data-timer data-seconds="120" hidden><span class="t-label">口述计时</span><span class="t-read" aria-live="polite">02:00</span><span class="t-bar"><span></span></span><button type="button" data-act="toggle">开始</button><button type="button" data-act="reset">重置</button></div><details class="reveal" data-reveal="english"><summary>展开 2 分钟英文口述稿</summary><div class="reveal-body"><p>I start from the simplest thing that can work and only move right on the spectrum when evidence says I should.</p>
+<p>If the steps can be written in code, it's a workflow. Contract review is that case: a fixed checklist, so code decides the path, and the model only judges one clause at a time. Running forty clauses in parallel is still a workflow — multiple model calls don't make it multi-agent.</p>
+<p>I give the model control of the path only when the steps can't be known in advance and each step gets real feedback, like tool results or tests. Vendor due diligence is closer to that: you don't know you need to check a subcontractor until you find one.</p>
+<p>Whether to delegate to workers that act on their own is a separate choice. I'd split work across several agents only when the subtasks are genuinely independent, each needs a lot of its own context, and I know how to merge the results. The main win is wall-clock time. The cost is that agents don't share what they've learned, so contradictions show up at merge time and someone has to resolve them with evidence.</p>
+<p>And I'd prove the choice with a fair comparison: same tasks, same budget, same tools and model, repeated runs. If a single agent does as well, I keep the single agent.</p></div></details></div>
+</section>
+<section id="followups">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Follow-ups 追问</span></div>
+<h2>一层一层往下问</h2>
+<ol class="followups" data-followups><li data-layer="1"><div class="fq"><span class="qtype">为何不用备选</span>合同审查里 40 个条目并行判定，这不就是 multi-agent 吗？</div><details class="reveal" data-reveal="f1"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>分两条轴看。谁拆子任务：代码事先定好（每个条目一次调用），模型不决定做什么、做几次。是否委派给自主 worker：没有，每次调用是一次独立的模型调用，只做一次指定的判定、不自己决定下一步。所以这是 workflow 里的 parallelization（分片），不是 worker Agent。</li><li>调用次数和上下文是否隔离都不能单独当标准。如果子任务由一个中心模型临场拆出来，就是 orchestrator-workers；如果拿到子任务的 worker 自己循环、自己决定怎么完成，才是委派给子 Agent。A02 的「固定大纲内的并行子 Agent」就是代码定子任务、worker 自主完成的组合。</li><li>说清这一点的价值：审计、评测和复现都按固定流水线来做，不需要为模型的规划行为另建评测。</li></ul></div></details></li><li data-layer="2"><div class="fq"><span class="qtype">需求变化</span>业务方又要做供应商尽调：查到分包商就要继续查分包商。你的架构怎么变？</div><details class="reveal" data-reveal="f2"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>子任务事先定不下，这一部分适合 orchestrator-workers 或单 Agent 循环；名单比对、注册信息核对这些固定检查仍然用代码做。</li><li>先从单 Agent 加工具开始，设步数上限、追查深度上限（例如只追两层分包）和预算。</li><li>出现两个信号再考虑拆成多个 Agent：上下文经常溢出，或串行时延超过 10 分钟的目标，而且各个方向（制裁、新闻、财报）确实可以独立查。</li></ul></div></details></li><li data-layer="3"><div class="fq"><span class="qtype">失败反证</span>尽调的 multi-agent 版本里，两个子 Agent 对同一家分包商结论矛盾，编排者选了错的那个。怎么防？</div><details class="reveal" data-reveal="f3"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>根因是上下文割裂：各子 Agent 只看到自己那部分证据，编排者只看到结论摘要。</li><li>要求每个子 Agent 的每条结论都附证据（来源、日期、原文片段），编排者按证据合并，而不是按结论投票。</li><li>合并前先确认说的是不是同一家公司：制裁名单上的名字和新闻里的拼写可能不同。每条结论带实体 ID 和别名证据（注册号、地址、原文拼写）；对不上的标「身份未确认」，不合并结论，交人核对。</li><li>矛盾不静默消解：报告里明确列出冲突和双方证据，交人判断；统计冲突率。冲突率高，说明拆分方式错了，或者这几个方向其实需要共享上下文，应合并回一个 Agent。</li></ul></div></details></li><li data-layer="4"><div class="fq"><span class="qtype">公平对照</span>你说 multi-agent 版本更好，怎么证明？</div><details class="reveal" data-reveal="f4"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>同一个任务集，同样的模型、工具和总 token / 时间预算，每个任务重复跑多次；比较结果质量、成本和结果的波动。</li><li>对照组要包括「给单 Agent 同样多的预算」，否则比的是预算而不是架构。</li><li>指标要分开看：结果质量、墙钟时间、总 token、合并冲突率。multi-agent 常见的优势是时延，未必是质量。更细的实验设计见 B05。</li></ul></div></details></li><li data-layer="5"><div class="fq"><span class="qtype">评估</span>Evaluator-optimizer 什么时候反而有害？</div><details class="reveal" data-reveal="f5"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>评价标准说不清时：评价者给不出可执行的修改意见，循环只是在换说法。</li><li>评价者和生成者用同一个模型、同一套提示时，容易互相迁就，分数上升但质量没变。</li><li>做法：设轮数上限；记录每一轮在评测集上的真实提升，提升接近零就停；评价者只看证据和标准，不看生成者的自述。</li></ul></div></details></li><li data-layer="6"><div class="fq"><span class="qtype">运行</span>Routing 把一份外包合同分进了「采购合同」的路径，用错了清单。怎么发现、怎么兜底？</div><details class="reveal" data-reveal="f6"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>路由结果带置信度；低于阈值或落在类别边界上的，走通用路径或转人工确认类别。</li><li>路由之后加一道便宜的程序检查，例如合同里出现「外包」「数据处理」等关键条款，但被分到采购路径时报警。</li><li>按类别统计误路由率；误路由的代价不对称（外包合同用错清单比反过来更贵），阈值按代价高的一侧设。</li></ul></div></details></li></ol><button type="button" class="next-layer" data-act="next-layer" hidden>下一层追问 ↓</button>
+</section>
+<section id="failures">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Failure Modes 失败模式</span></div>
+<h2>这些地方最容易栽</h2>
+<div class="fail-grid"><div class="case fail-card"><div class="case-head"><span class="cell"></span>把「多次调用」叫成 multi-agent</div><div class="case-body"><ul><li><b>症状</b>：架构图上画了一堆 Agent，实际每个都是固定的一次调用；评测和运维按「自主 Agent」去做，成本虚高，真正该测的固定步骤却没人测。</li><li><b>根因</b>：用调用次数、角色名字或上下文是否隔离来判断形态，而不是分开回答两个问题：子任务由谁拆（以及顶层骨架由谁定），以及是否委派给能自主完成子任务的 worker。</li><li><b>防线</b>：画图时给每个节点标两件事：这一层由代码还是模型决定，执行者是单次调用还是自主 worker；上下文共享与否另外标注。评测方式跟着前两件事走。</li></ul></div></div><div class="case fail-card"><div class="case-head"><span class="cell"></span>合并时丢信息，矛盾被静默吞掉</div><div class="case-body"><ul><li><b>症状</b>：子 Agent 各自的结论都有道理，合并后的报告却自相矛盾，或者只保留了其中一方，另一方的证据消失了。</li><li><b>根因</b>：上下文割裂。子 Agent 之间只通过摘要传递信息，隐含的判断和放弃过的路径都没传过去；合并步骤又按结论而不是按证据处理。</li><li><b>防线</b>：子结论必须附证据和实体 ID；合并规则写成代码或明确的 rubric；同名不同拼写的实体先做别名核对，对不上就标「身份未确认」；冲突显式列出、交人判断；监控冲突率，过高就重新考虑拆分方式。</li></ul></div></div><div class="case fail-card"><div class="case-head"><span class="cell"></span>评价循环原地打转</div><div class="case-body"><ul><li><b>症状</b>：evaluator-optimizer 每轮都「改进」，评价分数上升，但人工抽查和评测集上的质量不变，token 却成倍增长。</li><li><b>根因</b>：评价标准不清，或评价者与生成者共享同样的盲区。</li><li><b>防线</b>：轮数上限；评价者只看证据和标准；每轮都在评测集上量真实提升，没有提升就停。</li></ul></div></div></div>
+</section>
+<section id="estimate">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Estimate 估算</span></div>
+<h2>带着量纲算一遍</h2>
+<p><b>问：尽调任务拆成 4 个子 Agent，比单 Agent 省时间吗？省 token 吗？</b></p>
+<p>假设（练习设定，全部待实测）：4 个方向（制裁、新闻、财报、分包），每次模型调用平均 20 秒。单 Agent 串行做完 4 个方向，共 40 次调用，因为前面的发现一直留在上下文里，平均上下文 50k tokens。multi-agent 版本：编排者规划 2 次调用、每次 10k；合并 1 次调用、20k；4 个子 Agent 并行。子 Agent 分两种情况：各自资料互不重叠时，每个 10 次调用、平均上下文 20k；资料大量重叠时（每个都要先读同一批核心资料，还会重复探索），每个 14 次调用、平均上下文 50k。</p>
+<pre class="formula calc"><code>单 Agent
+  输入 token   40 次 × 50k                         = 2.0M
+  墙钟时间     40 次 × 20 秒                        = 800 秒 ≈ 13.3 分钟
+
+multi-agent，资料互不重叠
+  输入 token   2 × 10k + 4 × 10 × 20k + 1 × 20k    = 0.84M（单 Agent 的 0.42 倍）
+  墙钟时间     (2 + 10 + 1) 次 × 20 秒              = 260 秒 ≈ 4.3 分钟
+
+multi-agent，资料大量重叠
+  输入 token   2 × 10k + 4 × 14 × 50k + 1 × 20k    = 2.84M（单 Agent 的 1.42 倍）
+  墙钟时间     (2 + 14 + 1) 次 × 20 秒              = 340 秒 ≈ 5.7 分钟</code></pre>
+<p>（墙钟时间里子 Agent 并行，只计最长的那一支；编排与合并串行。）</p>
+<p><b>结论</b>：在这组假设下，拆分稳定省下的是墙钟时间；token 是省还是费，取决于子任务之间资料重叠多少、上下文增长多快，同一个架构可以是 0.42 倍，也可以是 1.42 倍。这里只算了输入 token，输出、搜索 API 费用和并发排队都没算；也没算质量：合并冲突、上下文割裂带来的漏报，要靠评测集单独量。</p>
+<p><b>敏感性</b>：重叠情况下，如果每个子 Agent 的调用从 14 次降到 10 次，输入 token 变成 2 × 10k + 4 × 10 × 50k + 20k = 2.04M，约等于单 Agent；可见「重复探索」本身就是 token 差异的主要来源之一。</p>
+<p><b>怎么实测</b>：在同一批尽调任务上，分别跑单 Agent 和 multi-agent，记录每次调用的上下文长度、调用次数、墙钟时间、合并冲突数，以及评测集上的漏报率；用实测值替换上面的假设。</p>
+</section>
+<section id="refs">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Cross-references 回链</span></div>
+<h2>原理去哪里补</h2>
+<ul class="refs"><li><a href="A01.html"><span class="ref-tag">A01</span></a> 改代码的 Agent：路径开放、有测试反馈，单 Agent 循环的典型场景</li><li><a href="A04.html"><span class="ref-tag">A04</span></a> 受监管文档审查：固定清单，workflow + parallelization 的典型场景</li><li><a href="A05.html"><span class="ref-tag">A05</span></a> 浏览器 Agent：观察 → 动作的单 Agent 循环，何时停下</li><li><a href="B05.html"><span class="ref-tag">B05</span></a> 为什么不 multi-agent：公平对照的实验设计</li><li><a href="B06.html"><span class="ref-tag">B06</span></a> Agent 怎么评估：不同形态要不同的评测方式</li><li><a href="https://xxxxxthhh.github.io/ai-systems-handbook/chapters/4-4-multi-agent.html" rel="noopener"><span class="ref-tag">AI 4.4</span></a> 多 agent 的收益来自并行，代价来自上下文割裂 <span class="ref-book">· AI 系统工程手册</span></li><li><a href="https://xxxxxthhh.github.io/ai-systems-handbook/chapters/4-2-planning-loop.html" rel="noopener"><span class="ref-tag">AI 4.2</span></a> ReAct、plan-and-execute 与何时循环 <span class="ref-book">· AI 系统工程手册</span></li><li><a href="https://xxxxxthhh.github.io/ccdv-handbook/chapters/ch09.html" rel="noopener"><span class="ref-tag">DV ch09</span></a> Agent 模式与框架：补充选型与委派机制（模式命名见上方原始工程文章） <span class="ref-book">· CCDV 备考手册</span></li><li><a href="https://xxxxxthhh.github.io/ccar-handbook/chapters/ch03.html" rel="noopener"><span class="ref-tag">AR ch03</span></a> 多智能体编排：补充 coordinator 分工与上下文传递 <span class="ref-book">· CCAR 备考手册</span></li></ul>
+</section>
+<section id="mine">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Your Turn 本人填写</span></div>
+<h2>只写真实经历</h2>
+<div class="mine" data-mine><p>只写真实经历，没有就空着，不编。公开版只有空表；填好的版本存在自己的私用练习记录里。</p>
+<div class="tbl-scroll"><table><thead><tr><th>场景</th><th>当时发生了什么</th><th>我亲自做了什么（团队 / AI 做了什么）</th><th>怎么发现的，结果和证据</th><th>之后怎么防</th></tr></thead><tbody><tr><td>本来用固定流程就够，却做成了 Agent（或反过来）</td><td></td><td></td><td></td><td></td></tr><tr><td>多个 Agent / 多路并行的结果合并时出了问题</td><td></td><td></td><td></td><td></td></tr></tbody></table></div></div><h3>练习记录</h3><div class="mine"><div class="tbl-scroll"><table><thead><tr><th>日期</th><th>口述用时</th><th>脱稿？</th><th>答不上的追问</th><th>下一轮修正（≤2）</th></tr></thead><tbody><tr><td></td><td></td><td></td><td></td><td></td></tr></tbody></table></div></div>
+</section>
+</main>
+<nav class="next"><a href="A06.html">← A06 长任务 goal Agent</a><a href="B02.html">B02 Tool / MCP 接口设计 →</a></nav>
+</div>
+<script src="../assets/interview.js"></script>
+</body>
+</html>

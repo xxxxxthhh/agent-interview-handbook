@@ -1,0 +1,76 @@
+<svg viewBox="0 0 760 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="有副作用的动作的状态机：已决定、已提交、结果未知、查询、已确认成功、补偿、对账或交人">
+  <defs>
+    <marker id="b08-arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--ink-soft)"/>
+    </marker>
+  </defs>
+
+  <!-- 第一行 -->
+  <rect x="22" y="52" width="160" height="54" rx="7" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="102" y="75" class="lbl" text-anchor="middle">已决定</text>
+  <text x="102" y="93" class="sub" text-anchor="middle">生成 op_id，先写账本</text>
+
+  <rect x="262" y="52" width="160" height="54" rx="7" fill="var(--card)" stroke="var(--line)"/>
+  <text x="342" y="75" class="lbl" text-anchor="middle">已提交</text>
+  <text x="342" y="93" class="sub" text-anchor="middle">请求带同一个 op_id</text>
+
+  <rect x="572" y="52" width="166" height="54" rx="7" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="655" y="75" class="lbl" text-anchor="middle">已确认成功</text>
+  <text x="655" y="93" class="sub" text-anchor="middle">记下外部返回</text>
+
+  <line x1="182" y1="79" x2="258" y2="79" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#b08-arr)"/>
+  <line x1="422" y1="79" x2="568" y2="79" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#b08-arr)"/>
+  <text x="495" y="71" class="mn" text-anchor="middle">成功返回</text>
+
+  <!-- 自环：可重试错误 -->
+  <path d="M312,52 C312,18 372,18 372,50" fill="none" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#b08-arr)"/>
+  <text x="342" y="16" class="mn" text-anchor="middle">明确未受理的 429：按 Retry-After 退避，同一 op_id 重提</text>
+
+  <!-- 第二行 -->
+  <rect x="22" y="196" width="160" height="54" rx="7" fill="var(--card)" stroke="var(--line)"/>
+  <text x="102" y="219" class="lbl" text-anchor="middle">明确失败</text>
+  <text x="102" y="237" class="sub" text-anchor="middle">不可重试 → 交人</text>
+
+  <rect x="262" y="196" width="160" height="54" rx="7" fill="var(--waste-soft)" stroke="var(--waste)" stroke-width="2.5"/>
+  <text x="342" y="219" class="lbl" text-anchor="middle">结果未知</text>
+  <text x="342" y="237" class="sub" text-anchor="middle">超时 / 断连 / 模糊 5xx</text>
+
+  <rect x="462" y="196" width="140" height="54" rx="7" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="532" y="219" class="lbl" text-anchor="middle">按 ID 查询</text>
+  <text x="532" y="237" class="sub" text-anchor="middle">op_id 或业务单号</text>
+
+  <rect x="628" y="196" width="110" height="54" rx="7" fill="var(--card)" stroke="var(--line)"/>
+  <text x="683" y="219" class="lbl" text-anchor="middle">补偿</text>
+  <text x="683" y="237" class="sub" text-anchor="middle">自带 op_id</text>
+
+  <line x1="290" y1="106" x2="170" y2="194" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#b08-arr)"/>
+  <text x="176" y="140" class="mn" text-anchor="middle">参数错 / 无权限</text>
+  <line x1="342" y1="106" x2="342" y2="192" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#b08-arr)"/>
+  <line x1="422" y1="223" x2="458" y2="223" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#b08-arr)"/>
+  <line x1="560" y1="196" x2="630" y2="108" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#b08-arr)"/>
+  <text x="612" y="162" class="mn" text-anchor="start">查到已生效</text>
+  <line x1="500" y1="196" x2="410" y2="108" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#b08-arr)"/>
+  <text x="462" y="128" class="mn">明确终态失败，或</text>
+  <text x="462" y="144" class="mn">仍在去重期内：重提</text>
+  <line x1="683" y1="106" x2="683" y2="192" stroke="var(--ink-soft)" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#b08-arr)"/>
+  <text x="690" y="150" class="mn">后续失败</text>
+
+  <!-- 第三行 -->
+  <rect x="424" y="296" width="216" height="54" rx="7" fill="var(--card)" stroke="var(--waste)" stroke-width="2.5"/>
+  <text x="532" y="319" class="lbl" text-anchor="middle">对账 / 交人</text>
+  <text x="532" y="337" class="sub" text-anchor="middle">仍不明：带着账本，不自动重提</text>
+  <line x1="532" y1="250" x2="532" y2="292" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#b08-arr)"/>
+  <text x="540" y="276" class="mn">刚查不到 / 不明：过对账窗口再查</text>
+
+  <text x="22" y="312" class="mn">每次状态变化先写执行账本；</text>
+  <text x="22" y="330" class="mn">重启后从账本恢复，不从对话记录推断；</text>
+  <text x="22" y="348" class="mn">租约只管本方；下游无校验时，执行权有争议就停下对账。</text>
+
+  <!-- 图例 -->
+  <rect x="22" y="370" width="16" height="16" rx="3" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="46" y="383" class="sub">确定性步骤（不经过模型）</text>
+  <rect x="236" y="370" width="16" height="16" rx="3" fill="var(--waste-soft)" stroke="var(--waste)" stroke-width="2"/>
+  <text x="260" y="383" class="sub">重复写入的高发点</text>
+  <rect x="402" y="370" width="16" height="16" rx="3" fill="var(--card)" stroke="var(--waste)" stroke-width="2.5"/>
+  <text x="426" y="383" class="sub">交给人</text>
+</svg>

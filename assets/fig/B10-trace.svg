@@ -1,0 +1,64 @@
+<svg viewBox="0 0 560 520" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="从用户结果往回倒查的六个阶段，以及每个阶段的 trace 要记录什么">
+  <defs>
+    <marker id="b10-arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--ink-soft)"/>
+    </marker>
+  </defs>
+
+  <text x="36" y="22" class="mn" style="font-size:13px">从用户结果往回查，找第一个出错的阶段</text>
+  <line x1="18" y1="36" x2="18" y2="440" stroke="var(--ink-soft)" stroke-width="2" marker-end="url(#b10-arr)"/>
+
+  <!-- 1 用户结果 -->
+  <rect x="36" y="36" width="170" height="58" rx="7" fill="var(--card)" stroke="var(--waste)" stroke-width="2.5"/>
+  <text x="121" y="60" class="lbl" text-anchor="middle" style="font-size:15.5px">用户结果 / 人审</text>
+  <text x="121" y="80" class="sub" text-anchor="middle" style="font-size:13px">症状在这里出现</text>
+  <text x="220" y="58" class="sub" style="font-size:14px">签发前修改、推翻、投诉</text>
+  <text x="220" y="80" class="sub" style="font-size:14px">审核人动作 + 理由码</text>
+
+  <!-- 2 综合输出 -->
+  <rect x="36" y="104" width="170" height="58" rx="7" fill="var(--alloc)" stroke="var(--alloc)"/>
+  <text x="121" y="128" class="lbl" text-anchor="middle" style="font-size:15.5px;fill:var(--on-fill)">生成 / 综合</text>
+  <text x="121" y="148" class="onfill" text-anchor="middle" style="font-size:12.5px">模型节点</text>
+  <text x="220" y="126" class="sub" style="font-size:14px">实际模型版本（不是别名）</text>
+  <text x="220" y="148" class="sub" style="font-size:14px">prompt 版本哈希、输出长度、引用数</text>
+
+  <!-- 3 证据抽取 -->
+  <rect x="36" y="172" width="170" height="58" rx="7" fill="var(--alloc)" stroke="var(--alloc)"/>
+  <text x="121" y="196" class="lbl" text-anchor="middle" style="font-size:15.5px;fill:var(--on-fill)">证据抽取</text>
+  <text x="121" y="216" class="onfill" text-anchor="middle" style="font-size:12.5px">模型节点</text>
+  <text x="220" y="194" class="sub" style="font-size:14px">抽出的字段、归源置信</text>
+  <text x="220" y="216" class="sub" style="font-size:14px">抽取失败与「无法判断」的计数</text>
+
+  <!-- 4 检索与工具 -->
+  <rect x="36" y="240" width="170" height="58" rx="7" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="121" y="264" class="lbl" text-anchor="middle" style="font-size:15.5px">检索 / 工具调用</text>
+  <text x="121" y="284" class="sub" text-anchor="middle" style="font-size:13px">不经过模型</text>
+  <text x="220" y="262" class="sub" style="font-size:14px">查询、索引版本、文档 ID + 内容哈希</text>
+  <text x="220" y="284" class="sub" style="font-size:14px">工具版本、返回码、内容质量信号</text>
+
+  <!-- 5 权限决定 -->
+  <rect x="36" y="308" width="170" height="58" rx="7" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="121" y="332" class="lbl" text-anchor="middle" style="font-size:15.5px">权限决定</text>
+  <text x="121" y="352" class="sub" text-anchor="middle" style="font-size:13px">不经过模型</text>
+  <text x="220" y="330" class="sub" style="font-size:14px">允许 / 拒绝、依据的 ACL 与策略版本</text>
+  <text x="220" y="352" class="sub" style="font-size:14px">被过滤掉的文档数</text>
+
+  <!-- 6 输入与规划 -->
+  <rect x="36" y="376" width="170" height="58" rx="7" fill="var(--card)" stroke="var(--line)"/>
+  <text x="121" y="400" class="lbl" text-anchor="middle" style="font-size:15.5px">输入 / 规划</text>
+  <text x="121" y="420" class="sub" text-anchor="middle" style="font-size:13px">任务从这里进入</text>
+  <text x="220" y="398" class="sub" style="font-size:14px">输入哈希、任务类型与分层标签</text>
+  <text x="220" y="420" class="sub" style="font-size:14px">配置版本、拆出的子问题</text>
+
+  <!-- 底注 -->
+  <text x="36" y="468" class="mn" style="font-size:12.5px">每个 span 共用一个 trace ID；正文按字段脱敏，</text>
+  <text x="36" y="488" class="mn" style="font-size:12.5px">哈希只能定位变化；载荷抽样存受控存储，≤30 天到期清理</text>
+
+  <!-- 图例 -->
+  <rect x="36" y="498" width="14" height="14" rx="3" fill="var(--alloc)"/>
+  <text x="56" y="510" class="sub" style="font-size:12.5px">模型节点</text>
+  <rect x="140" y="498" width="14" height="14" rx="3" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="160" y="510" class="sub" style="font-size:12.5px">不经过模型</text>
+  <rect x="256" y="498" width="14" height="14" rx="3" fill="var(--card)" stroke="var(--waste)" stroke-width="2.5"/>
+  <text x="276" y="510" class="sub" style="font-size:12.5px">人工节点</text>
+</svg>

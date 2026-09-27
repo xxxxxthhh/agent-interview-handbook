@@ -1,0 +1,60 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Interview Bench 行为测试</title>
+<!-- 用法：起本地服务器后，无头 Chrome --dump-dom 打开本页，读 #result。不发布。 -->
+<pre id="result">running</pre>
+<iframe id="f" style="width:1000px;height:800px"></iframe>
+<script>
+const out = [];
+const ok = (cond, name) => out.push((cond ? 'PASS ' : 'FAIL ') + name);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const U = new URLSearchParams(location.search).get('u') || 'A04';
+document.getElementById('f').src = '../units/' + U + '.html';
+document.getElementById('f').addEventListener('load', async () => {
+  const w = document.getElementById('f').contentWindow, d = w.document;
+  try {
+    w.localStorage.clear();
+    const ta = d.querySelector('[data-submission]');
+    const persist = d.querySelector('[data-act="persist"]');
+    ok(!d.querySelector('.bench-ctl').hidden, 'JS 启用后交卷控件可见');
+    ok(!persist.checked, '保存开关默认关闭');
+    ta.value = '草稿内容'; ta.dispatchEvent(new w.Event('input'));
+    ok(w.localStorage.length === 0, '默认输入不写 localStorage');
+    persist.checked = true; persist.dispatchEvent(new w.Event('change'));
+    ok(w.localStorage.getItem('aih:' + U + ':submission:v1') === '草稿内容', '勾选后写入，键带 schema 版本');
+    persist.checked = false; persist.dispatchEvent(new w.Event('change'));
+    ok(w.localStorage.length === 0, '取消勾选即删除');
+    persist.checked = true; persist.dispatchEvent(new w.Event('change'));
+    const clearAll = d.querySelector('[data-act="clear-all"]');
+    clearAll.click();
+    ok(w.localStorage.length === 1 && clearAll.textContent === '再点一次确认', '清除需二次确认，第一次不删');
+    clearAll.click();
+    ok(w.localStorage.length === 0 && ta.value === '' && !persist.checked, '第二次点击清除全部');
+
+    const lis = d.querySelectorAll('[data-followups] > li');
+    const locked = () => d.querySelectorAll('[data-followups] > li.locked').length;
+    ok(lis.length >= 5 && locked() === lis.length - 1, '追问初始只露第 1 层');
+    const nb = d.querySelector('[data-act="next-layer"]');
+    for (let i = 0; i < lis.length - 1; i++) nb.click();
+    ok(locked() === 0 && nb.hidden, '逐层展开到底后按钮隐藏');
+
+    const timers = d.querySelectorAll('[data-timer]');
+    ok(timers.length === 2 && [...timers].every(t => !t.hidden), '两个计时器 JS 启用后可见');
+    const oral = timers[1];
+    oral.querySelector('[data-act="toggle"]').click();
+    await sleep(1300);
+    const r = oral.querySelector('.t-read').textContent;
+    ok(r === '01:59' || r === '01:58', '口述计时器在走：' + r);
+    oral.querySelector('[data-act="reset"]').click();
+    ok(oral.querySelector('.t-read').textContent === '02:00', '重置回 02:00');
+
+    const det = d.querySelectorAll('details.reveal');
+    ok([...det].every(x => !x.open), '参考答案与追问要点默认折叠');
+    w.dispatchEvent(new w.Event('beforeprint'));
+    ok([...det].every(x => x.open), 'beforeprint 展开全部');
+    w.dispatchEvent(new w.Event('afterprint'));
+    ok([...det].every(x => !x.open), 'afterprint 恢复折叠');
+  } catch (e) { out.push('FAIL exception ' + e); }
+  document.getElementById('result').textContent = out.join('\n') + '\nDONE';
+});
+</script>

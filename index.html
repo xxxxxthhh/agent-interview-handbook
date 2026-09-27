@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent 设计面试手册</title>
+<meta name="description" content="面向面试的 Agent 设计训练：先交卷，再看参考，再接追问。">
+<link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Noto+Sans+SC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Noto+Sans+SC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"></noscript>
+<link rel="stylesheet" href="assets/handbook.css">
+<link rel="stylesheet" href="assets/interview.css">
+<script src="assets/theme.js"></script>
+</head>
+<body>
+<button class="theme-toggle" type="button" aria-label="切换深色/浅色模式" title="切换深色/浅色模式">
+  <span class="moon" aria-hidden="true">🌙</span><span class="sun" aria-hidden="true">☀️</span>
+</button>
+<div class="wrap">
+<header class="book-head">
+  <div class="blockrow" aria-hidden="true"><span></span><span class="w"></span><span></span><span></span><span class="w"></span><span class="f"></span></div>
+  <div class="kicker">Agent Design Interview Handbook</div>
+  <h1>Agent 设计面试手册<span class="zh">先交卷，再揭晓，再接追问</span></h1>
+  <p class="lede">这不是又一本讲 ReAct 的书。每个单元是一道没见过的 Agent 设计题：限时交一版方案，对照参考交卷和评分表，用两分钟英文讲出来，再一层一层接面试官的追问。原理部分回链到本系列的 AI 系统工程手册和两本 Claude 认证手册，这里不重讲。</p>
+</header>
+<section class="how">
+<div class="sec-tag"><span class="cell"></span><span class="lab">30 Minutes 考前半小时</span></div>
+<h2>挑一道端到端题，配两张深挖卡</h2>
+<ol>
+<li>按场景选 <b>1 个 Part A 题</b>：看任务类型、错误代价、动作是否可逆。</li>
+<li>从它的追问里挑 <b>2 张 Part B 卡</b>，看一句话框架和取舍表（约 15 分钟）。</li>
+<li>打开计时器口述一遍（约 5 分钟）。</li>
+<li>最后 10 分钟只做一件事：接一条没见过的反例追问，或者写一版交卷提纲。</li>
+</ol>
+<div class="tbl-scroll"><table><thead><tr><th>岗位类型</th><th>建议组合（示例）</th></tr></thead><tbody>
+<tr><td>垂直 Agent 研发</td><td>A06 长任务 + B06 评估 + B03 上下文</td></tr>
+<tr><td>Forward Deployed / 交付工程</td><td>A04 或 A03 + B07 放行点 + B01 编排光谱</td></tr>
+<tr><td>Solutions / 售前架构</td><td>A02 或 A04 + B01 编排光谱 + B09 成本</td></tr>
+</tbody></table></div>
+<p class="note">组合是准备建议，不是任何公司的出题规律。收到面试邀请后按实际轮次调整。</p>
+</section>
+<div class="part"><div class="part-head"><span class="no">Part A</span><h2>端到端交卷</h2><span class="tag">6 题 · 每题 20–30 分钟</span></div><ul class="toc">
+<li><a href="units/A01.html"><span class="n">A01</span><span class="t">改代码的 Agent</span><span class="d">模糊需求 → 可验证条款 → 受限修改 → 独立放行</span></a></li>
+<li><a href="units/A02.html"><span class="n">A02</span><span class="t">深度研究 / 搜索 Agent <span class="pri">P0</span></span><span class="d">跨来源取证、引用可核查、来源矛盾怎么办</span></a></li>
+<li><a href="units/A03.html"><span class="n">A03</span><span class="t">客服 Agent（含语音变体） <span class="pri">P0</span></span><span class="d">政策步骤交给代码，风险动作先确认，语音链路有超时和转人工</span></a></li>
+<li><a href="units/A04.html"><span class="n">A04</span><span class="t">受监管文档审查 Agent <span class="pri">P0</span></span><span class="d">固定工作流 + 逐字引用 + 权限跟人走 + 签字人放行</span></a></li>
+<li><a href="units/A05.html"><span class="n">A05</span><span class="t">浏览器 / computer-use Agent</span><span class="d">观察与动作分离，不可逆动作前停下</span></a></li>
+<li><a href="units/A06.html"><span class="n">A06</span><span class="t">长任务 goal Agent</span><span class="d">目标与验收在会话外，检查器判完成，预算与升级终止循环</span></a></li>
+</ul></div>
+<div class="part"><div class="part-head"><span class="no">Part B</span><h2>横切深挖</h2><span class="tag">10 张 · 被追问时翻</span></div><ul class="toc">
+<li><a href="units/B01.html"><span class="n">B01</span><span class="t">编排光谱 <span class="pri">P0</span></span><span class="d">步骤能否预定、有无外部反馈、能否独立并行</span></a></li>
+<li><a href="units/B02.html"><span class="n">B02</span><span class="t">Tool / MCP 接口设计</span><span class="d">模型只提议，执行器验证参数、权限与副作用</span></a></li>
+<li><a href="units/B03.html"><span class="n">B03</span><span class="t">上下文工程与缓存</span><span class="d">任务真值、可重取观察、稳定前缀分层</span></a></li>
+<li><a href="units/B04.html"><span class="n">B04</span><span class="t">Memory 设计</span><span class="d">只记有来源、有权限、有生命周期的事实</span></a></li>
+<li><a href="units/B05.html"><span class="n">B05</span><span class="t">为什么不 multi-agent</span><span class="d">独立可合并才试，和等预算单 Agent 公平对照</span></a></li>
+<li><a href="units/B06.html"><span class="n">B06</span><span class="t">Agent 评估 <span class="pri">P0</span></span><span class="d">可重置任务集，分开量结果、规则、轨迹、一致性</span></a></li>
+<li><a href="units/B07.html"><span class="n">B07</span><span class="t">注入、权限与人工放行点 <span class="pri">P0</span></span><span class="d">不可信内容与授权决策隔开，按动作风险定放行</span></a></li>
+<li><a href="units/B08.html"><span class="n">B08</span><span class="t">错误恢复与幂等</span><span class="d">错误先分类，写入要幂等键、对账、补偿</span></a></li>
+<li><a href="units/B09.html"><span class="n">B09</span><span class="t">延迟与成本</span><span class="d">拆关键路径和单位成本，守住质量门槛</span></a></li>
+<li><a href="units/B10.html"><span class="n">B10</span><span class="t">上线后的质量回溯</span><span class="d">从用户结果倒查检索、模型、工具、权限、人工节点</span></a></li>
+</ul></div>
+<p class="colophon">题目均为自拟训练题，场景与数字为虚构练习设定，不代表任何公司的真实面试题或真实系统。</p>
+</div>
+</body>
+</html>

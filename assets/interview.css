@@ -1,0 +1,120 @@
+/* ============================================================
+   Agent 设计面试手册 · 在系列 handbook.css 之上的专属组件
+   只使用 handbook.css 已定义的颜色令牌，不新增色值。
+   ============================================================ */
+
+[hidden]{display:none!important}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.pri{display:inline-block;font-family:var(--mono);font-size:11px;letter-spacing:.06em;background:var(--waste);color:var(--on-fill);border-radius:4px;padding:0 7px;margin-left:6px;vertical-align:2px;line-height:1.7}
+.soon{font-family:var(--mono);font-size:11.5px;color:var(--ink-soft);border:1px dashed var(--line);border-radius:20px;padding:0 9px;margin-left:8px;white-space:nowrap}
+.note,.colophon{font-size:13.5px;color:var(--ink-soft)}
+.colophon{margin-top:64px;padding-top:18px;border-top:1px solid var(--line)}
+.how ol{margin-top:4px}
+
+/* 题面卡：面试官递过来的那张纸 */
+.prompt-card{border-left-color:var(--waste);font-size:16.5px}
+.prompt-card p{margin-bottom:14px}
+
+/* 一句话框架 */
+.frame{font-family:var(--disp);font-weight:500;font-size:18px;line-height:1.7;border-left:4px solid var(--alloc);padding:6px 0 6px 18px;margin:8px 0 20px}
+.frame p{margin:0}
+
+/* ---------- Interview Bench：交卷台 ---------- */
+.bench{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 18px 12px;margin:22px 0}
+.bench textarea{display:block;width:100%;min-height:280px;resize:vertical;margin:12px 0 10px;padding:14px 16px;
+  font:15px/1.75 var(--body);color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:8px}
+.bench textarea:focus{outline:none;border-color:var(--alloc);box-shadow:0 0 0 3px var(--alloc-soft)}
+.bench-ctl{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.bench-note{font-size:12.5px;color:var(--ink-soft);margin:10px 0 0}
+.bench button,.timer button,.next-layer{font-family:var(--mono);font-size:12.5px;color:var(--ink);background:var(--paper);
+  border:1px solid var(--line);border-radius:20px;padding:5px 14px;cursor:pointer}
+.bench button:hover,.timer button:hover,.next-layer:hover{border-color:var(--alloc);color:var(--alloc)}
+.bench button:focus-visible,.timer button:focus-visible,.next-layer:focus-visible,.reveal summary:focus-visible{outline:2px solid var(--alloc);outline-offset:2px}
+.bench .opt{font-family:var(--mono);font-size:12.5px;color:var(--ink-soft);display:inline-flex;gap:6px;align-items:center;padding:0 6px;cursor:pointer}
+.bench .opt input{accent-color:var(--alloc)}
+.bench [data-act="clear-all"]{margin-left:auto}
+.bench .flash{font-family:var(--mono);font-size:12px;color:var(--alloc)}
+
+/* ---------- 计时器 ---------- */
+.timer{display:flex;flex-wrap:wrap;align-items:center;gap:10px 12px;margin:6px 0 4px}
+.timer .t-label{font-family:var(--disp);font-weight:700;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft)}
+.timer .t-read{font-family:var(--mono);font-weight:500;font-size:26px;letter-spacing:.02em;min-width:84px;font-variant-numeric:tabular-nums}
+.timer .t-bar{flex:1 1 160px;height:6px;border-radius:3px;background:var(--line);overflow:hidden}
+.timer .t-bar span{display:block;height:100%;width:0;background:var(--alloc);transition:width .9s linear}
+.timer.warn .t-bar span{background:var(--waste)}
+.timer.warn .t-read{color:var(--waste)}
+.timer.done .t-read::after{content:' 时间到';font-family:var(--body);font-size:13px;color:var(--waste)}
+
+/* ---------- 揭晓 ---------- */
+.reveal{background:var(--card);border:1px solid var(--line);border-radius:10px;margin:16px 0;overflow:hidden}
+.reveal>summary{cursor:pointer;list-style:none;padding:14px 52px 14px 20px;position:relative;font-family:var(--disp);font-weight:500;font-size:15px;color:var(--alloc)}
+.reveal>summary::-webkit-details-marker{display:none}
+.reveal>summary::after{content:'+';position:absolute;right:20px;top:50%;transform:translateY(-50%);font-weight:700;font-size:20px}
+.reveal[open]>summary::after{content:'–'}
+.reveal-body{border-top:1px dashed var(--line);padding:6px 22px 8px;background:var(--answer-bg)}
+.reveal-body>h3:first-child{margin-top:18px}
+
+/* ---------- 追问链 ---------- */
+.followups{list-style:none;margin:0;counter-reset:fq}
+.followups>li{counter-increment:fq;position:relative;margin:0 0 18px;padding-left:46px}
+.followups>li::before{content:counter(fq);position:absolute;left:0;top:2px;width:30px;height:30px;border-radius:50%;
+  background:var(--head-bg);color:var(--head-fg);font:700 14px/30px var(--disp);text-align:center}
+.followups>li:not(:last-child)::after{content:'';position:absolute;left:14px;top:38px;bottom:-14px;width:2px;background:var(--line)}
+.followups .fq{font-weight:500;font-size:16px;line-height:1.7}
+.followups .qtype{display:inline-block;font-family:var(--mono);font-size:11.5px;background:var(--alloc-soft);border-radius:20px;padding:1px 10px;margin-right:8px;vertical-align:1px}
+.followups .reveal{margin:10px 0 0}
+.followups .reveal>summary{font-size:13.5px;padding:10px 48px 10px 16px}
+.followups>li.locked{display:none}
+.next-layer{margin:4px 0 0 46px}
+
+/* ---------- 失败模式卡 ---------- */
+.fail-grid{display:grid;gap:16px}
+.fail-card{margin:0}
+.fail-card .case-body ul{margin-left:18px}
+.fail-card .case-body li{font-size:14.5px}
+
+/* ---------- 估算 ---------- */
+.calc{white-space:pre;font-size:13px}
+.calc code{background:none;padding:0;font-size:inherit}
+
+/* ---------- 回链 ---------- */
+.refs{list-style:none;margin:0}
+.refs li{padding:9px 0;border-bottom:1px solid var(--line);font-size:15px}
+.refs li:last-child{border-bottom:none}
+.ref-tag{display:inline-block;font-family:var(--mono);font-size:12px;border:1px solid var(--alloc);border-radius:4px;padding:0 7px;margin-right:6px}
+.ref-tag.planned{border-color:var(--line);color:var(--ink-soft)}
+.ref-book{font-size:12.5px;color:var(--ink-soft)}
+
+/* 表格首列是维度名，给最小宽度避免被挤成竖排 */
+main td:first-child,main th:first-child{min-width:5.5em}
+
+/* ---------- 本人填写 ---------- */
+.mine td{height:44px}
+.mine td:first-child{color:var(--ink-soft);font-size:13.5px}
+
+/* 窄屏：图不随屏宽缩到文字不可读，保持最小宽度，横向滑动查看 */
+figure[data-fig]{overflow-x:auto;-webkit-overflow-scrolling:touch}
+@media (max-width:640px){
+  figure[data-fig] svg{min-width:600px}
+  figure[data-fig]::after{content:'← 左右滑动查看全图 →';display:block;font-family:var(--mono);font-size:11.5px;color:var(--ink-soft);margin-top:8px;position:sticky;left:0}
+}
+/* 窄屏：4 列及以上的表同样保持最小宽度，在 .tbl-scroll 里横向滑动 */
+@media (max-width:640px){main .tbl-scroll table:has(th:nth-child(4)){min-width:620px}}
+@media print{main .tbl-scroll table{min-width:0!important}}
+@media print{figure[data-fig] svg{min-width:0}figure[data-fig]::after{display:none}}
+
+@media (max-width:560px){
+  .timer .t-read{font-size:22px;min-width:70px}
+  .bench [data-act="clear-all"]{margin-left:0}
+  .followups>li{padding-left:40px}
+  .next-layer{margin-left:40px}
+  .frame{font-size:16.5px}
+}
+@media print{
+  .bench-ctl,.timer,.next-layer,.bench-note{display:none!important}
+  .bench textarea{min-height:420px;border:1px solid #999}
+  .followups>li.locked{display:block}
+  .reveal>summary::after{display:none}
+  .fail-card{page-break-inside:avoid}
+  .mine td{height:64px}
+}

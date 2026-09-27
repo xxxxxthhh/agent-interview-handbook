@@ -1,0 +1,84 @@
+<svg viewBox="0 0 760 452" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="长任务 goal Agent 的数据流与控制流">
+  <defs>
+    <marker id="a06-arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--ink-soft)"/>
+    </marker>
+  </defs>
+
+  <!-- 第一行：会话外的持久状态 + 外层编排 -->
+  <rect x="22" y="36" width="190" height="58" rx="7" fill="var(--card)" stroke="var(--ink-soft)" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <text x="117" y="60" class="lbl" text-anchor="middle">目标文件 v2</text>
+  <text x="117" y="79" class="sub" text-anchor="middle">逐作业验收条款 · 只读</text>
+
+  <rect x="285" y="36" width="190" height="58" rx="7" fill="var(--card)" stroke="var(--line)"/>
+  <text x="380" y="60" class="lbl" text-anchor="middle">外层编排器</text>
+  <text x="380" y="79" class="sub" text-anchor="middle">普通代码 · 取下一个作业</text>
+
+  <rect x="548" y="36" width="190" height="58" rx="7" fill="var(--card)" stroke="var(--ink-soft)" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <text x="643" y="60" class="lbl" text-anchor="middle">账本</text>
+  <text x="643" y="79" class="sub" text-anchor="middle">作业状态机 · 尝试记录</text>
+
+  <line x1="212" y1="65" x2="281" y2="65" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a06-arr)"/>
+  <line x1="475" y1="58" x2="544" y2="58" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a06-arr)"/>
+  <line x1="544" y1="74" x2="479" y2="74" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a06-arr)"/>
+
+  <text x="117" y="112" class="mn" text-anchor="middle">压缩时原样钉住</text>
+  <text x="643" y="112" class="mn" text-anchor="middle">重启先与真实环境对账</text>
+
+  <!-- 逐作业短循环 -->
+  <rect x="22" y="130" width="716" height="126" rx="10" fill="none" stroke="var(--ink-soft)" stroke-dasharray="3 4"/>
+  <text x="36" y="150" class="mn">× 每个作业一个短循环 · 独立上下文，做完即丢弃</text>
+
+  <rect x="42" y="168" width="180" height="54" rx="7" fill="var(--alloc)" stroke="var(--alloc)"/>
+  <text x="132" y="191" class="lbl" text-anchor="middle" style="fill:var(--on-fill)">模型</text>
+  <text x="132" y="209" class="onfill" text-anchor="middle">写配置 · 按失败原因修复</text>
+
+  <rect x="290" y="168" width="180" height="54" rx="7" fill="var(--card)" stroke="var(--line)"/>
+  <text x="380" y="191" class="lbl" text-anchor="middle">预发执行</text>
+  <text x="380" y="209" class="sub" text-anchor="middle">operation_id · 验证去重才重试</text>
+
+  <rect x="538" y="168" width="180" height="54" rx="7" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="628" y="191" class="lbl" text-anchor="middle">对账检查器</text>
+  <text x="628" y="209" class="sub" text-anchor="middle">Agent 不可写</text>
+
+  <line x1="380" y1="94" x2="380" y2="126" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a06-arr)"/>
+  <line x1="222" y1="195" x2="286" y2="195" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a06-arr)"/>
+  <line x1="470" y1="195" x2="534" y2="195" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a06-arr)"/>
+  <path d="M600,222 L600,240 L132,240 L132,226" fill="none" stroke="var(--ink-soft)" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#a06-arr)"/>
+  <text x="380" y="235" class="mn" text-anchor="middle">未通过：带失败原因再试，最多尝试 3 次</text>
+
+  <!-- 第三行：停止条件与放行 -->
+  <rect x="22" y="300" width="170" height="54" rx="7" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="107" y="323" class="lbl" text-anchor="middle">预算与打转检测</text>
+  <text x="107" y="341" class="sub" text-anchor="middle">硬上限 · 无进展即停</text>
+
+  <rect x="212" y="300" width="170" height="54" rx="7" fill="var(--card)" stroke="var(--waste)" stroke-width="2.5"/>
+  <text x="297" y="323" class="lbl" text-anchor="middle">交接包 → 人</text>
+  <text x="297" y="341" class="sub" text-anchor="middle">证据 · 原因 · 尝试记录</text>
+
+  <rect x="402" y="300" width="120" height="54" rx="7" fill="var(--card)" stroke="var(--line)"/>
+  <text x="462" y="323" class="lbl" text-anchor="middle">生产切换</text>
+  <text x="462" y="341" class="sub" text-anchor="middle">脚本执行</text>
+
+  <rect x="552" y="300" width="186" height="54" rx="7" fill="var(--card)" stroke="var(--waste)" stroke-width="2.5"/>
+  <text x="645" y="323" class="lbl" text-anchor="middle">负责人批准</text>
+  <text x="645" y="341" class="sub" text-anchor="middle">逐个作业</text>
+
+  <line x1="107" y1="256" x2="107" y2="296" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a06-arr)"/>
+  <line x1="192" y1="327" x2="208" y2="327" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a06-arr)"/>
+  <line x1="680" y1="222" x2="680" y2="296" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a06-arr)"/>
+  <text x="688" y="276" class="mn">通过</text>
+  <line x1="552" y1="327" x2="526" y2="327" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a06-arr)"/>
+
+  <text x="22" y="384" class="mn">⏱ 预算：token / 墙钟 / 查询配额；任一用到 80% 先写交接包再停</text>
+
+  <!-- 图例 -->
+  <rect x="22" y="412" width="16" height="16" rx="3" fill="var(--alloc)"/>
+  <text x="46" y="425" class="sub">模型节点</text>
+  <rect x="136" y="412" width="16" height="16" rx="3" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="160" y="425" class="sub">不经过模型的检查</text>
+  <rect x="306" y="412" width="16" height="16" rx="3" fill="var(--card)" stroke="var(--waste)" stroke-width="2.5"/>
+  <text x="330" y="425" class="sub">人工放行</text>
+  <rect x="420" y="412" width="16" height="16" rx="3" fill="var(--card)" stroke="var(--ink-soft)" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <text x="444" y="425" class="sub">会话之外的持久状态</text>
+</svg>

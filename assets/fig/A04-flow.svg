@@ -1,0 +1,91 @@
+<svg viewBox="0 0 760 452" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="受监管文档审查系统的数据流与控制流">
+  <defs>
+    <marker id="a04-arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--ink-soft)"/>
+    </marker>
+  </defs>
+
+  <!-- 不可信内容区：合同原文流经的路径 -->
+  <rect x="8" y="22" width="744" height="92" rx="10" fill="var(--waste-soft)" stroke="var(--waste)" stroke-dasharray="6 5" opacity=".9"/>
+  <text x="22" y="16" class="mn">不可信数据区 · 合同原文只作数据，不作指令</text>
+
+  <!-- 第一行：摄取（左→右） -->
+  <rect x="22" y="40" width="150" height="54" rx="7" fill="var(--card)" stroke="var(--line)"/>
+  <text x="97" y="63" class="lbl" text-anchor="middle">文档库</text>
+  <text x="97" y="81" class="sub" text-anchor="middle">按部门 ACL</text>
+
+  <rect x="212" y="40" width="150" height="54" rx="7" fill="var(--card)" stroke="var(--line)"/>
+  <text x="287" y="63" class="lbl" text-anchor="middle">摄取</text>
+  <text x="287" y="81" class="sub" text-anchor="middle">以请求人身份读取</text>
+
+  <rect x="402" y="40" width="150" height="54" rx="7" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="477" y="63" class="lbl" text-anchor="middle">OCR 质量门</text>
+  <text x="477" y="81" class="sub" text-anchor="middle">质量信号 → 路由</text>
+
+  <rect x="592" y="40" width="150" height="54" rx="7" fill="var(--card)" stroke="var(--line)"/>
+  <text x="667" y="63" class="lbl" text-anchor="middle">分段 + 索引</text>
+  <text x="667" y="81" class="sub" text-anchor="middle">段落带页码</text>
+
+  <line x1="172" y1="67" x2="208" y2="67" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a04-arr)"/>
+  <line x1="362" y1="67" x2="398" y2="67" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a04-arr)"/>
+  <line x1="552" y1="67" x2="588" y2="67" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a04-arr)"/>
+
+  <!-- 逐条目循环框 -->
+  <rect x="22" y="140" width="720" height="118" rx="10" fill="none" stroke="var(--ink-soft)" stroke-dasharray="3 4"/>
+  <text x="36" y="160" class="mn">× 40 个清单条目 · 清单带版本号</text>
+
+  <!-- 第二行：判定（右→左） -->
+  <rect x="582" y="176" width="150" height="54" rx="7" fill="var(--card)" stroke="var(--line)"/>
+  <text x="657" y="199" class="lbl" text-anchor="middle">检索候选段</text>
+  <text x="657" y="217" class="sub" text-anchor="middle">查询时按 ACL 过滤</text>
+
+  <rect x="312" y="176" width="170" height="54" rx="7" fill="var(--alloc)" stroke="var(--alloc)"/>
+  <text x="397" y="199" class="lbl" text-anchor="middle" style="fill:var(--on-fill)">模型判定</text>
+  <text x="397" y="217" class="onfill" text-anchor="middle">先判适用，再五选一</text>
+
+  <rect x="42" y="176" width="170" height="54" rx="7" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="127" y="199" class="lbl" text-anchor="middle">引用存在性校验</text>
+  <text x="127" y="217" class="sub" text-anchor="middle">定位回原页 · 排除捏造</text>
+
+  <line x1="667" y1="94" x2="667" y2="172" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a04-arr)"/>
+  <line x1="582" y1="203" x2="486" y2="203" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a04-arr)"/>
+  <line x1="312" y1="203" x2="216" y2="203" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a04-arr)"/>
+
+  <text x="228" y="250" class="mn">✗ 引用不匹配 → 重试 → 无法判断</text>
+  <text x="477" y="130" class="mn" text-anchor="middle">低质量页 → 重扫 / 人工</text>
+
+  <!-- 第三行：汇总与放行（左→右） -->
+  <rect x="22" y="300" width="150" height="54" rx="7" fill="var(--card)" stroke="var(--line)"/>
+  <text x="97" y="323" class="lbl" text-anchor="middle">汇总</text>
+  <text x="97" y="341" class="sub" text-anchor="middle">「缺失」多路召回复查</text>
+
+  <rect x="212" y="300" width="150" height="54" rx="7" fill="var(--card)" stroke="var(--waste)" stroke-width="2.5"/>
+  <text x="287" y="323" class="lbl" text-anchor="middle">人审队列</text>
+  <text x="287" y="341" class="sub" text-anchor="middle">分级 + 抽样 + 原页并排</text>
+
+  <rect x="402" y="300" width="150" height="54" rx="7" fill="var(--card)" stroke="var(--waste)" stroke-width="2.5"/>
+  <text x="477" y="323" class="lbl" text-anchor="middle">合规官签字</text>
+  <text x="477" y="341" class="sub" text-anchor="middle">唯一放行点</text>
+
+  <rect x="592" y="300" width="150" height="54" rx="7" fill="var(--card)" stroke="var(--line)"/>
+  <text x="667" y="323" class="lbl" text-anchor="middle">归档 + 审计日志</text>
+  <text x="667" y="341" class="sub" text-anchor="middle">继承合同 ACL · 可追溯</text>
+
+  <line x1="97" y1="230" x2="97" y2="296" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a04-arr)"/>
+  <line x1="172" y1="327" x2="208" y2="327" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a04-arr)"/>
+  <line x1="362" y1="327" x2="398" y2="327" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a04-arr)"/>
+  <line x1="552" y1="327" x2="588" y2="327" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a04-arr)"/>
+
+  <!-- 时效 -->
+  <text x="22" y="384" class="mn">⏱ 两个工作日从资料齐全起算：各阶段有时间预算，超时升级为人工兜底</text>
+
+  <!-- 图例 -->
+  <rect x="22" y="412" width="16" height="16" rx="3" fill="var(--alloc)"/>
+  <text x="46" y="425" class="sub">唯一的模型节点</text>
+  <rect x="170" y="412" width="16" height="16" rx="3" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="194" y="425" class="sub">不经过模型的检查</text>
+  <rect x="352" y="412" width="16" height="16" rx="3" fill="var(--card)" stroke="var(--waste)" stroke-width="2.5"/>
+  <text x="376" y="425" class="sub">人工放行</text>
+  <rect x="470" y="412" width="16" height="16" rx="3" fill="var(--waste-soft)" stroke="var(--waste)" stroke-dasharray="4 3"/>
+  <text x="494" y="425" class="sub">不可信数据区</text>
+</svg>

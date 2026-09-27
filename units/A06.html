@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A06 长任务 goal Agent · Agent 设计面试手册</title>
+<meta name="description" content="Design a long-running goal agent">
+<link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Noto+Sans+SC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Noto+Sans+SC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"></noscript>
+<link rel="stylesheet" href="../assets/handbook.css">
+<link rel="stylesheet" href="../assets/interview.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+<button class="theme-toggle" type="button" aria-label="切换深色/浅色模式" title="切换深色/浅色模式">
+  <span class="moon" aria-hidden="true">🌙</span><span class="sun" aria-hidden="true">☀️</span>
+</button>
+<div class="wrap">
+<nav class="crumb"><a href="../index.html">← 目录</a> · Part A · 端到端交卷</nav>
+<main data-unit="A06" data-kind="A">
+<header class="ch">
+  <div class="blockrow" aria-hidden="true"><span class=""></span><span class="w"></span><span class=""></span><span class=""></span><span class="w"></span><span class=""></span><span class="f"></span><span class=""></span><span class="w"></span><span class="f"></span></div>
+  <div class="kicker">Part A · 端到端交卷 · A06 </div>
+  <h1>Design a long-running goal agent<span class="zh">长任务 goal Agent</span></h1>
+  <div class="meta">
+    <span>交卷 <b>25 min</b></span>
+    <span>口述 <b>2 min</b></span>
+    <span>追问 <b>7 层</b></span>
+    <span>适合 <b>垂直 Agent 研发, FDE</b></span>
+  </div>
+</header>
+<section id="prompt">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Prompt 题面</span></div>
+<h2>先读题，别急着画框图</h2>
+<div data-prompt><div class="callout prompt-card"><p>某公司数据平台团队（虚构练习场景）要把 120 个遗留 ETL 作业从旧调度器迁到新调度器。负责人想给 Agent 一个目标：「把这 120 个作业迁完，每个都要对账通过」，然后让它自己跑几天，中间只在需要批准时找人。请在白板上设计这个长任务 Agent：它怎么知道自己做完了，中途崩溃、上下文被压缩、工具反复失败时怎么办。</p></div>
+<p>题面为本书自拟的训练题，不代表任何公司的真实面试题或真实系统。</p></div>
+<h3>约束</h3><div class="tbl-scroll"><table><thead><tr><th>约束</th><th>取值（练习设定）</th></tr></thead><tbody><tr><td>量</td><td>120 个作业；每个作业要读旧配置 → 写新配置 → 在预发环境跑一次 → 对账（行数与关键列校验和）</td></tr><tr><td>时长</td><td>预计 3–5 个工作日，跨多次会话；单次会话内上下文会被压缩多次</td></tr><tr><td>工具</td><td>旧调度器 API（只读）；新调度器 API（可写预发，生产切换需审批）；数据仓库查询（只读，每天 300 次配额）；代码仓库（可开 PR）</td></tr><tr><td>不稳定</td><td>预发环境偶发失败，与作业本身无关；调度器 API 会限流</td></tr><tr><td>预算</td><td>总 token 预算、每天的仓库查询配额、5 个工作日的截止期</td></tr><tr><td>完成</td><td>每个作业要么「已切换且对账通过」，要么「移交给人并写明原因」</td></tr><tr><td>放行</td><td>生产切换由数据平台负责人逐个批准</td></tr></tbody></table></div><details class="reveal" data-reveal="twist"><summary>答到一半再点开：面试官补了一句</summary><div class="reveal-body"><p data-twist>「负责人刚改了规则：对账除了行数和校验和，还要比较下游 3 张报表的数字；另外有 15 个作业要下线，不迁了。」</p></div></details>
+</section>
+<section id="submit">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Blank Submission 交卷</span></div>
+<h2>25 分钟，从空白开始</h2>
+<p>在 25 分钟内交一版，至少覆盖：</p>
+<ul><li>数据流与控制流图：目标、账本、循环、检查器、人工审批各在哪；哪些状态活在会话之外。</li><li>「完成」由谁判定；Agent 自己说做完了，你凭什么信或不信。</li><li>一条恢复路径：进程在「已经创建了预发作业、还没来得及记账」时崩溃，重启后怎么办。</li><li>预算用完或在打转时怎么停，停下时交给人的是什么。</li><li>一个比 Agent 更简单的基线，以及从基线升级（或退回）的条件。</li></ul>
+<div class="bench" data-bench="A06">
+  <div class="timer" data-timer data-seconds="1500" hidden><span class="t-label">交卷计时</span><span class="t-read" aria-live="polite">25:00</span><span class="t-bar"><span></span></span><button type="button" data-act="toggle">开始</button><button type="button" data-act="reset">重置</button></div>
+  <label class="sr" for="sub-A06">你的交卷</label>
+  <textarea id="sub-A06" data-submission rows="14" placeholder="在这里写你的澄清问题、架构、失败恢复、指标……（草稿默认不保存；需要时勾选下方「保存到此浏览器」）"></textarea>
+  <div class="bench-ctl" hidden>
+    <button type="button" data-act="export">导出为 .md</button>
+    <label class="opt"><input type="checkbox" data-act="persist"> 保存到此浏览器</label>
+    <button type="button" data-act="clear">清除此题草稿</button>
+    <button type="button" data-act="clear-all">清除所有草稿</button>
+  </div>
+  <p class="bench-note">不要输入真实客户或机密材料。草稿只在你的浏览器里，页面不上传任何内容。</p>
+</div>
+</section>
+<section id="reference">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Reference 参考交卷</span></div>
+<h2>交完再看</h2>
+<div data-reference><details class="reveal" data-reveal="reference"><summary>揭晓参考交卷与评分表</summary><div class="reveal-body"><h3>该先问的问题</h3><ol><li>每个作业的「完成」具体是什么、由谁判定？对账能否用脚本自动判？哪些只能人看？这决定检查器怎么建、完成由谁宣布。</li><li>哪些动作有副作用、哪些必须人批准？预发能不能随便重跑？这决定幂等设计和放行点。</li><li>预算有哪几种（token、墙钟、查询配额），用完时希望停下还是先交接？这决定硬上限和收尾方式。</li><li>目标或验收规则中途会不会变、谁有权改？这决定目标要不要版本化、改条款要不要授权。</li><li>任务会被打断吗（进程重启、会话结束、有人插手改了配置）？出问题时找谁？这决定恢复流程和升级路径。</li></ol><h3>一句话框架</h3><div class="frame" data-frame><p>目标和验收条款放在会话之外、带版本号，由独立检查器判完成；进度记在账本里，恢复时先和真实环境对账；外层代码按作业切出短循环，预算、重试上限和升级给循环明确的停止条件。</p></div><h3>参考交卷</h3><figure data-fig="A06-flow"><svg viewBox="0 0 760 452" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="长任务 goal Agent 的数据流与控制流">
+  <defs>
+    <marker id="a06-arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--ink-soft)"/>
+    </marker>
+  </defs>
+
+  <!-- 第一行：会话外的持久状态 + 外层编排 -->
+  <rect x="22" y="36" width="190" height="58" rx="7" fill="var(--card)" stroke="var(--ink-soft)" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <text x="117" y="60" class="lbl" text-anchor="middle">目标文件 v2</text>
+  <text x="117" y="79" class="sub" text-anchor="middle">逐作业验收条款 · 只读</text>
+
+  <rect x="285" y="36" width="190" height="58" rx="7" fill="var(--card)" stroke="var(--line)"/>
+  <text x="380" y="60" class="lbl" text-anchor="middle">外层编排器</text>
+  <text x="380" y="79" class="sub" text-anchor="middle">普通代码 · 取下一个作业</text>
+
+  <rect x="548" y="36" width="190" height="58" rx="7" fill="var(--card)" stroke="var(--ink-soft)" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <text x="643" y="60" class="lbl" text-anchor="middle">账本</text>
+  <text x="643" y="79" class="sub" text-anchor="middle">作业状态机 · 尝试记录</text>
+
+  <line x1="212" y1="65" x2="281" y2="65" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a06-arr)"/>
+  <line x1="475" y1="58" x2="544" y2="58" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a06-arr)"/>
+  <line x1="544" y1="74" x2="479" y2="74" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a06-arr)"/>
+
+  <text x="117" y="112" class="mn" text-anchor="middle">压缩时原样钉住</text>
+  <text x="643" y="112" class="mn" text-anchor="middle">重启先与真实环境对账</text>
+
+  <!-- 逐作业短循环 -->
+  <rect x="22" y="130" width="716" height="126" rx="10" fill="none" stroke="var(--ink-soft)" stroke-dasharray="3 4"/>
+  <text x="36" y="150" class="mn">× 每个作业一个短循环 · 独立上下文，做完即丢弃</text>
+
+  <rect x="42" y="168" width="180" height="54" rx="7" fill="var(--alloc)" stroke="var(--alloc)"/>
+  <text x="132" y="191" class="lbl" text-anchor="middle" style="fill:var(--on-fill)">模型</text>
+  <text x="132" y="209" class="onfill" text-anchor="middle">写配置 · 按失败原因修复</text>
+
+  <rect x="290" y="168" width="180" height="54" rx="7" fill="var(--card)" stroke="var(--line)"/>
+  <text x="380" y="191" class="lbl" text-anchor="middle">预发执行</text>
+  <text x="380" y="209" class="sub" text-anchor="middle">operation_id · 验证去重才重试</text>
+
+  <rect x="538" y="168" width="180" height="54" rx="7" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="628" y="191" class="lbl" text-anchor="middle">对账检查器</text>
+  <text x="628" y="209" class="sub" text-anchor="middle">Agent 不可写</text>
+
+  <line x1="380" y1="94" x2="380" y2="126" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a06-arr)"/>
+  <line x1="222" y1="195" x2="286" y2="195" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a06-arr)"/>
+  <line x1="470" y1="195" x2="534" y2="195" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a06-arr)"/>
+  <path d="M600,222 L600,240 L132,240 L132,226" fill="none" stroke="var(--ink-soft)" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#a06-arr)"/>
+  <text x="380" y="235" class="mn" text-anchor="middle">未通过：带失败原因再试，最多尝试 3 次</text>
+
+  <!-- 第三行：停止条件与放行 -->
+  <rect x="22" y="300" width="170" height="54" rx="7" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="107" y="323" class="lbl" text-anchor="middle">预算与打转检测</text>
+  <text x="107" y="341" class="sub" text-anchor="middle">硬上限 · 无进展即停</text>
+
+  <rect x="212" y="300" width="170" height="54" rx="7" fill="var(--card)" stroke="var(--waste)" stroke-width="2.5"/>
+  <text x="297" y="323" class="lbl" text-anchor="middle">交接包 → 人</text>
+  <text x="297" y="341" class="sub" text-anchor="middle">证据 · 原因 · 尝试记录</text>
+
+  <rect x="402" y="300" width="120" height="54" rx="7" fill="var(--card)" stroke="var(--line)"/>
+  <text x="462" y="323" class="lbl" text-anchor="middle">生产切换</text>
+  <text x="462" y="341" class="sub" text-anchor="middle">脚本执行</text>
+
+  <rect x="552" y="300" width="186" height="54" rx="7" fill="var(--card)" stroke="var(--waste)" stroke-width="2.5"/>
+  <text x="645" y="323" class="lbl" text-anchor="middle">负责人批准</text>
+  <text x="645" y="341" class="sub" text-anchor="middle">逐个作业</text>
+
+  <line x1="107" y1="256" x2="107" y2="296" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a06-arr)"/>
+  <line x1="192" y1="327" x2="208" y2="327" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a06-arr)"/>
+  <line x1="680" y1="222" x2="680" y2="296" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a06-arr)"/>
+  <text x="688" y="276" class="mn">通过</text>
+  <line x1="552" y1="327" x2="526" y2="327" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a06-arr)"/>
+
+  <text x="22" y="384" class="mn">⏱ 预算：token / 墙钟 / 查询配额；任一用到 80% 先写交接包再停</text>
+
+  <!-- 图例 -->
+  <rect x="22" y="412" width="16" height="16" rx="3" fill="var(--alloc)"/>
+  <text x="46" y="425" class="sub">模型节点</text>
+  <rect x="136" y="412" width="16" height="16" rx="3" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="160" y="425" class="sub">不经过模型的检查</text>
+  <rect x="306" y="412" width="16" height="16" rx="3" fill="var(--card)" stroke="var(--waste)" stroke-width="2.5"/>
+  <text x="330" y="425" class="sub">人工放行</text>
+  <rect x="420" y="412" width="16" height="16" rx="3" fill="var(--card)" stroke="var(--ink-soft)" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <text x="444" y="425" class="sub">会话之外的持久状态</text>
+</svg><figcaption>数据流与控制流。虚线框是会话之外的持久状态（目标文件、账本）；每个作业在独立的短循环里执行，检查器和预算检测都不经过模型；生产切换只在负责人批准之后发生。</figcaption></figure>
+<p><b>1. 目标是合约，不是一句话。</b> 负责人的目标先被拆成逐作业的验收条款：对账规则、状态要求、完成的定义，写进带版本号的目标文件。Agent 能读，不能改。目标含糊的地方先问一次再固定。条款改动要负责人授权，并把版本号加一。有上下游依赖的作业，条款里记下它所依赖的上游作业及其配置版本；上游重新切换或改了配置，下游的「通过」自动失效，要按新的血缘重验。</p>
+<p><b>2. 完成由检查器说了算。</b> 每个作业是否通过，由对账脚本判定，而不是由做事的模型宣布。报告里只列检查器的结果和证据（查询语句、对账数字），模型的自述只作参考。检查器、阈值和对账脚本放在 Agent 不能写的位置，否则它可以通过放宽检查来「完成」。</p>
+<p><b>3. 外层代码编排，每个作业一个短循环。</b> 编排器从账本取下一个待办作业，开一个独立上下文的循环：读旧配置、生成新配置、跑预发、对账、按失败原因修复。循环结束就回写账本、丢弃上下文。这样单个循环很短，压缩很少发生；作业之间也不会因为共享一个超长上下文而互相干扰。按 B01 的两条轴，这是「代码拆子任务」的编排。</p>
+<p><b>4. 账本是意图，环境是事实。</b> 账本记录每个作业的状态、尝试过什么、下一步。重启或换会话时，不从聊天记录推断进度，而是先查调度器和预发的真实状态，与账本逐个对账；两者不一致时以真实状态为准并补记。</p>
+<p><b>5. 副作用只在能确认时才自动重试。</b> 创建预发作业、开 PR 都带稳定的 operation_id（作业 ID + 动作种类 + 目标环境 + 配置哈希），避免不同动作共用一个标识。只有下游对这个 ID 有经过验证的唯一约束或幂等窗口时，才自动用同一个 ID 重试。否则先按 ID 查询；查不到也不能断定没写入，因为外部可能已经写入、只是本地没记账或暂时查不到。这时不自动重发，把作业标成「待核对」，稍后再查或交给人。本地账本记了 ID，并不保证外部只有一份。生产切换 Agent 只能提交申请；负责人批准后由确定性脚本执行。Agent 使用的服务身份只读旧调度器、只写预发，只能查询这 120 个作业涉及的表。</p>
+<p><b>6. 预算、打转与升级。</b> 三种预算各有硬上限。打转的信号：同一作业的同一检查连续失败、同一个修改被反复提交、若干轮内通过检查器的作业数不变、成本在涨而进展为零。检测到打转先换一次策略（比如换一种修复思路），仍不行就把该作业移交给人。任一预算用到 80% 时，先写交接包再停：哪些已完成（附检查器证据）、哪些移交（附原因和尝试记录）、哪些没开始。</p>
+<p><b>7. 上下文与缓存。</b> 目标和条款是钉住区块，压缩时原样重新注入，不参与摘要。进度靠工具读账本，不写进 system prompt。prompt 按稳定程度排序：system、工具定义、钉住区块在前且字节级不变，观察只往后追加。压缩会改写摘要及其后的内容，这一段的缓存要重新写入；稳定前缀只要字节不变、仍在缓存有效期内，按服务的前缀匹配规则仍可命中。所以压缩只在循环边界发生，也不去改动前缀。</p>
+<p><b>8. 评估这套机制。</b> 在沙箱里复制一批历史作业做固定任务集，量真实完成率、假完成率（自称完成但检查器或人工不通过）、单作业成本、升级率、恢复成功率、压缩后的目标漂移率。改机制前后在同一任务集上对比，口径与 B06 一致。</p>
+<p><b>基线与升级条件。</b> 最简单的基线是「确定性转换脚本 + 人工处理异常」：能机械转换的配置用脚本批量转，对账脚本判通过，转不了的交给人。只有脚本覆盖不了的配置变体多到人工处理不过来时，才让模型处理这部分作业；如果模型处理的作业假完成率或返工率高于人工，就退回脚本 + 人工，让模型只给修改建议。</p><h3>设计取舍表</h3><div class="tbl-scroll"><table><thead><tr><th>设计点</th><th>采用</th><th>否决的备选</th><th>什么证据会让我改</th></tr></thead><tbody><tr><td>目标与验收</td><td>目标文件带版本号，拆成逐作业的可检查条款（对账规则、状态要求；有依赖的作业还记录上游作业的配置版本）；Agent 只能读，改条款要负责人授权并升版本</td><td>目标只写在第一条消息里，靠模型记住</td><td>不改存放位置；条款粒度可以调，比如评测显示逐作业条款太碎、人工审核负担过重时，按作业类型合并</td></tr><tr><td>完成判断</td><td>对账脚本等确定性检查器判每个作业是否通过；Agent 的自述只作参考；自动判不了的条款标「未验证」，不算完成</td><td>让执行的模型自己宣布完成</td><td>若某类条款只能由模型评委判，单独标「评委通过」，并用人工抽样校准，不与脚本通过混算</td></tr><tr><td>编排骨架</td><td>外层代码从账本取下一个作业，为每个作业开一个短循环（独立上下文），做完回写账本</td><td>一个 Agent 在一个超长会话里一路做到底</td><td>作业之间强依赖（如必须按血缘顺序迁、前一个的结果改变后一个的做法）时，给循环附上依赖作业的摘要，或按依赖链合并成组</td></tr><tr><td>状态与恢复</td><td>账本在会话外：每个作业一个状态机（待办 / 进行中 / 预发通过 / 对账通过 / 待批准 / 已切换 / 已移交 / 已取消），附尝试记录和下一步；重启时先查调度器和预发的真实状态，与账本对账</td><td>从聊天记录推断做到哪了</td><td>不改；账本记录的是意图，真实环境才是事实，两者不一致时以真实状态为准并补记</td></tr><tr><td>副作用</td><td>创建预发作业、开 PR 都带稳定的 operation_id（作业 ID + 动作种类 + 目标环境 + 配置哈希）；只有下游对这个 ID 有经过验证的唯一约束或幂等窗口，才自动用同一 ID 重试；否则先查，结果不明就停在「待核对」交人；生产切换只提交申请，由人批准</td><td>失败就重新创建；或者以为本地记了 ID 就不会重复</td><td>在预发里实测到重复提交同一 ID 只产生一份之后，才对这个动作开放自动重试；幂等窗口过期或接口升级后重新验证</td></tr><tr><td>预算与打转</td><td>token、墙钟、查询配额都有硬上限；单作业预发最多尝试 3 次（首次 + 2 次重试）；连续若干轮没有新作业通过检查器即判定打转，先换一次策略，仍不行就升级；用到 80% 时先写交接包再停</td><td>跑到被截断为止</td><td>实测的预发随机失败率如果远高于假设，要提高尝试上限或先修预发环境，不然误升级太多（见估算）</td></tr><tr><td>上下文</td><td>目标和条款是钉住区块，压缩时原样保留；进度以账本为准，需要时用工具读，不写进 system prompt；prompt 按稳定程度排序，前缀字节级不变以保缓存命中</td><td>把当前进度写进 system prompt；压缩时连目标一起摘要</td><td>压缩后的回归测试显示目标仍会漂移时，缩短单个循环，让压缩少发生</td></tr></tbody></table></div><h3>评分表</h3><div class="tbl-scroll"><table><thead><tr><th>维度</th><th>及格</th><th>优秀</th><th>常见失分</th></tr></thead><tbody><tr><td>问题定义</td><td>问清完成标准和放行点</td><td>问到预算种类、条款谁能改、中断的形态，并由此推出版本化与恢复设计</td><td>直接开始讲 Agent 循环</td></tr><tr><td>架构取舍</td><td>目标和进度存在会话外</td><td>外层代码按作业切短循环，讲清为什么不用一个超长会话，给出依赖作业的处理</td><td>一个会话跑到底，靠压缩撑着</td></tr><tr><td>失败与恢复</td><td>提到重试和人工兜底</td><td>崩溃时账本与环境对账、operation_id、打转检测和交接包都讲到</td><td>只说「失败就重试」</td></tr><tr><td>评估</td><td>提到检查器</td><td>区分真实完成与假完成，给出机制本身的评测指标，检查器不在 Agent 可写范围</td><td>相信 Agent 的完成报告</td></tr><tr><td>表达</td><td>2 分钟内讲完主干</td><td>先给「目标是合约」的结论，再展开；追问时能说出具体阈值和触发条件</td><td>罗列组件，没有取舍</td></tr></tbody></table></div></div></details></div>
+</section>
+<section id="oral">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Two-minute English 口述</span></div>
+<h2>两分钟，先结论后展开</h2>
+<div data-oral><div class="timer" data-timer data-seconds="120" hidden><span class="t-label">口述计时</span><span class="t-read" aria-live="polite">02:00</span><span class="t-bar"><span></span></span><button type="button" data-act="toggle">开始</button><button type="button" data-act="reset">重置</button></div><details class="reveal" data-reveal="english"><summary>展开 2 分钟英文口述稿</summary><div class="reveal-body"><p>I'd treat the goal as a contract that something outside the model verifies. First I'd ask what "done" means for each job, which actions need approval, and what budgets we have.</p>
+<p>The goal becomes versioned acceptance criteria per job, stored outside the conversation. The agent can read them but not change them; changes need the owner's approval and a new version.</p>
+<p>Done is decided by a checker, not by the agent. Here, a reconciliation script compares row counts and checksums.</p>
+<p>The outer loop is plain code. It picks the next job from a ledger and runs a short, isolated agent loop for that job, then writes the result back. Short loops mean little compaction.</p>
+<p>The ledger records intent; the environment is the truth. On restart, I reconcile the ledger with the scheduler before doing anything. Every write carries a stable operation ID, but I retry automatically only where the scheduler verifiably deduplicates it; otherwise an unclear result stops that job for review.</p>
+<p>Budgets are hard limits. If the same check keeps failing or no new job passes for several turns, the agent tries one different approach, then hands the job to a person. At eighty percent of budget, it writes a handoff instead of getting cut off.</p>
+<p>Finally, the goal block is pinned during compaction, and the prompt is ordered by stability so the prefix stays cacheable.</p></div></details></div>
+</section>
+<section id="followups">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Follow-ups 追问</span></div>
+<h2>一层一层往下问</h2>
+<ol class="followups" data-followups><li data-layer="1"><div class="fq"><span class="qtype">为何不用备选</span>为什么不让一个 Agent 在一个长会话里从头做到尾？反过来，为什么不直接写个脚本？</div><details class="reveal" data-reveal="f1"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>一个长会话里，120 个作业的观察不断堆积，压缩会反复发生，每次压缩都是一次丢细节、丢目标的机会，摘要及其后的缓存片段也要重新写入；估算里单一长会话的输入量约是按作业切分的 3.5 倍。</li><li>按作业切分后，每个循环只看一个作业的上下文，失败也只影响这一个作业；代价是作业之间的依赖要显式传递。</li><li>能用脚本转的就用脚本，这是基线。只有脚本覆盖不了的配置变体多到人工处理不过来，模型才值得进来；判断依据是同一任务集上的假完成率、返工率和人工工时。</li></ul></div></details></li><li data-layer="2"><div class="fq"><span class="qtype">需求变化</span>对账规则加了「下游 3 张报表的数字」，另外 15 个作业下线。已经做完的怎么办？</div><details class="reveal" data-reveal="f2"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>目标文件升到 v2，条款变更由负责人授权。账本里每个作业记下它是按哪个版本判定通过的。</li><li>已「对账通过」但还没切换的作业，按 v2 只补做新增的报表比较，不必重迁；已切换到生产的作业也按 v2 重验，不通过的交负责人决定是否回滚，Agent 不自行回滚生产。</li><li>15 个下线作业改为「已取消」并写明原因，不删除历史记录；它们已经创建的预发资源按清单交给人清理。</li><li>重算配额和工期，按变更那一刻的实际进度算：已对账且保留的作业只补新增的 3 次查询，没做的按 9 次，取消作业已经花掉的查询是沉没成本；再加上失败重跑，按每天剩余配额排期（见估算）。从零按 v2 算的 945 次、4 天只是下限情景。</li><li>工期还要算负责人逐个批准的时间。算下来不够就提前告诉负责人，请他决定加配额、延期还是缩小范围。</li></ul></div></details></li><li data-layer="3"><div class="fq"><span class="qtype">失败反证</span>Agent 报告「全部完成」，检查器也全绿，一周后下游报表的数字错了。问题出在哪？怎么防？</div><details class="reveal" data-reveal="f3"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>检查器全绿只说明「条款里写到的都满足」；报表错说明验收条款没覆盖到下游，这是条款的缺口，不是执行的问题。</li><li>另一种可能是 Agent 动了检查器：改了对账阈值、跳过了某些列。所以检查器、阈值和对账脚本必须放在 Agent 不能写的地方，报告里附上检查器的版本和原始输出。</li><li>还有一种形态：上游作业切换后输出变了，下游作业却是按旧的上游版本验证通过的。所以有依赖的作业，条款要记上游的配置版本；上游一变，下游的「通过」自动失效并重验。两个作业都按同一血缘版本通过，才能一起宣布完成。</li><li>防：高风险作业（下游报表多的）加人工抽检；条款里加入下游比较。发现后：条款升版本，按新条款重验所有已完成的作业，回溯受影响的范围，并把这个样本加进评测集。</li></ul></div></details></li><li data-layer="4"><div class="fq"><span class="qtype">恢复</span>进程在「预发作业已经创建、还没来得及记账」时崩溃了，重启后怎么办？</div><details class="reveal" data-reveal="f4"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>重启先对账：按账本里「进行中」的作业，用 operation_id 查调度器，看预发作业是否存在、状态如何。</li><li>查到了就补记账本，从下一步继续。</li><li>没查到时分两种情况：下游对这个 ID 有经过验证的唯一约束或幂等窗口，才用同一个 operation_id 重试；没有的话不自动重发，因为外部可能已经写入、只是暂时查不到，把作业标「待核对」，稍后再查或交给人。</li><li>查询本身失败或结果矛盾时也不猜，同样标「待核对」，其余作业继续。</li></ul></div></details></li><li data-layer="5"><div class="fq"><span class="qtype">打转</span>你怎么判断它在打转？预算用到 80% 还有 30 个作业没做完，怎么办？</div><details class="reveal" data-reveal="f5"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>打转的可观察信号：同一作业同一检查连续失败；同一个配置差异被反复提交；若干轮内通过检查器的作业数不变；token 在涨而进展为零。</li><li>阈值要按实测的随机失败率定：预发随机失败率 10%、失败彼此独立时，最多尝试 3 次（首次 + 2 次重试），无辜作业被误升级的概率约千分之一；最多尝试 2 次则约百分之一（见估算）。</li><li>用到 80% 时先写交接包：已完成的附检查器证据，未完成的按「在做 / 没开始 / 已移交」分组，写明卡在哪、试过什么。然后请负责人决定是追加预算、缩小范围还是转人工。</li></ul></div></details></li><li data-layer="6"><div class="fq"><span class="qtype">上下文</span>压缩之后，模型按旧版规则做事，或者把一个已经移交的作业又捡了回来。怎么防？怎么测？</div><details class="reveal" data-reveal="f6"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>防：目标和条款是钉住区块，压缩时原样注入，带版本号；作业状态以账本为准，每个循环开始时从账本读，而不是从摘要里推断。</li><li>缓存：钉住区块放在前缀里且字节级不变；版本升级时，从目标块开始往后的缓存要重新写入一次，这是有意的。</li><li>测：在评测里人为触发压缩，让模型复述当前目标版本、当前作业和下一步，与账本比对；统计压缩后的目标漂移率和「捡回已移交作业」的次数。</li></ul></div></details></li><li data-layer="7"><div class="fq"><span class="qtype">评估</span>你怎么评估这套 goal 机制本身，而不是某一次运行？</div><details class="reveal" data-reveal="f7"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>在沙箱里复制一批历史作业做固定任务集，注入已知故障（预发随机失败、API 限流、中途崩溃、中途改条款）。</li><li>指标：真实完成率、假完成率、单作业成本、升级率、恢复成功率、压缩后漂移率；机制改动前后在同一任务集上配对比较。</li><li>同一任务重复跑多次看一致性，口径按 B06 的 pass^k：长任务更关心「每次都能完成」，而不是「试几次总有一次成功」。</li></ul></div></details></li></ol><button type="button" class="next-layer" data-act="next-layer" hidden>下一层追问 ↓</button>
+</section>
+<section id="failures">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Failure Modes 失败模式</span></div>
+<h2>这些地方最容易栽</h2>
+<div class="fail-grid"><div class="case fail-card"><div class="case-head"><span class="cell"></span>假完成</div><div class="case-body"><ul><li><b>症状</b>：Agent 的完成报告说「全部完成」，但检查器没跑、跑失败了，或者人工抽检不通过。</li><li><b>根因</b>：让做事的模型自己宣布完成；检查器的结果没有进入报告，或者检查器在 Agent 可写的范围里。</li><li><b>防线</b>：完成只由检查器判定，报告只列检查器的输出和版本；检查器、阈值放在 Agent 不能写的位置；评测里单独统计假完成率。</li></ul></div></div><div class="case fail-card"><div class="case-head"><span class="cell"></span>账本和现实分叉</div><div class="case-body"><ul><li><b>症状</b>：同一个作业在预发里出现两份，或者账本说已完成、调度器里却找不到。</li><li><b>根因</b>：崩溃发生在「副作用已发生」和「账本已记录」之间；重启后按账本继续，没有先对账。</li><li><b>防线</b>：所有写操作带稳定的 operation_id；只有下游验证过按 ID 去重，才自动重试；重启先按 ID 查询真实状态再继续；查不清的作业标「待核对」交给人，不自动重发。</li></ul></div></div><div class="case fail-card"><div class="case-head"><span class="cell"></span>压缩后目标漂移</div><div class="case-body"><ul><li><b>症状</b>：规则改成 v2 之后，模型仍按 v1 判；或者重复做已完成的作业、把已移交的作业捡回来。</li><li><b>根因</b>：目标和进度只存在对话里，被摘要改写或丢失。</li><li><b>防线</b>：目标钉住并带版本号，进度以账本为准；按作业切短循环让压缩少发生；压缩后的复述回归测试。</li></ul></div></div></div>
+</section>
+<section id="estimate">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Estimate 估算</span></div>
+<h2>带着量纲算一遍</h2>
+<p><b>问：按作业切短循环和一个长会话，token 差多少？尝试上限设几次？新规则下配额够不够？</b></p>
+<p>假设（练习设定，全部待实测）：120 个作业；每个作业平均 12 轮模型调用；每轮输入 = 稳定前缀 8k tokens（system、工具定义、钉住的目标块）+ 作业上下文平均 10k tokens，输出 1k tokens；短循环里前缀缓存命中率 90%。单一长会话：每轮新增约 2.5k tokens 历史，上下文涨到 100k 就压缩回 20k，平均上下文约 60k；每次压缩额外一次调用，读入 100k。预发随机失败率 10%，与作业本身无关、各次独立；「尝试上限」指总尝试次数，含首次。每个作业对账需 6 次仓库查询，新规则下需 9 次。中途变化在第 3 个工作日开始时到达：此时 40 个作业已按旧规则对账通过并保留，另有 5 个已对账的作业被取消，10 个还没做就被取消、没有消耗查询，其余 65 个还没做（40 + 5 + 10 + 65 = 120）；约 15% 的作业需要重跑一次对账。负责人批准一个切换约 3 分钟。</p>
+<pre class="formula calc"><code>token（方案 X：按作业切短循环）
+  轮数        120 作业 × 12 轮                   = 1,440 轮
+  输入        1,440 × (8k + 10k)                 = 25.92M tokens
+  输出        1,440 × 1k                          = 1.44M tokens
+  其中可缓存前缀  1,440 × 8k × 90%                = 10.368M tokens
+  未命中缓存部分  25.92M − 10.368M                = 15.552M tokens
+
+token（方案 Y：单一长会话 + 压缩）
+  每个压缩周期    (100k − 20k) / 2.5k            = 32 轮
+  压缩次数        1,440 / 32                      = 45 次
+  输入        1,440 × 60k + 45 × 100k             = 86.4M + 4.5M = 90.9M tokens
+  Y / X 输入比                                    ≈ 3.5 倍
+
+尝试上限（一个作业本身没问题，却因随机失败被误升级；失败独立时的期望值）
+  最多 3 次    0.1³ = 0.001  × 120 作业           ≈ 0.12 个
+  最多 2 次    0.1² = 0.01   × 120 作业           = 1.2 个
+
+仓库查询配额（每天 300 次）
+  原规则，从零开始  120 × 6                        = 720 次 → 至少 3 天
+  v2 从零开始（下限情景） (120 − 15) × 9          = 945 次 → 至少 4 天
+  中途变更（第 3 天开始时）
+    已通过并保留，补查  40 × 3                      = 120 次
+    未做，按 v2         65 × 9                      = 585 次
+    取消作业已花掉的    5 × 6 = 30 次（沉没，不占剩余配额）
+    未做即取消          10 × 0 = 0 次
+    重跑 15%            65 × 15% × 9 + 40 × 15% × 3  = 87.75 + 18 ≈ 106 次
+    合计                                            ≈ 811 次
+    剩余配额：第 3–5 天整天可用 3 × 300              = 900 次 → 余约 89 次
+    若第 3 天只剩 120 次 120 + 2 × 300               = 720 次 → 缺约 91 次
+
+负责人批准     105 个作业 × 3 分钟                    = 315 分钟 ≈ 5.3 小时</code></pre>
+<p><b>结论</b>：按作业切短循环的输入量约为单一长会话的 1/3.5；长会话的 45 次压缩，意味着摘要及其后的缓存片段 45 次重新写入或未命中，也是 45 次丢细节的机会。最多尝试 3 次时误升级几乎可以忽略，2 次则每轮约误升级 1 个作业。中途变化之后，真正卡工期的是查询配额：按变更时的进度算约 811 次，第 3–5 天整天可用时只余约 89 次；变更如果在第 3 天下午才到、当天只剩 120 次，就缺约 91 次，要提前请负责人决定。另外负责人还要花约 5.3 小时逐个批准切换，这也要排进他的日程。</p>
+<p><b>敏感性</b>：预发随机失败率从 10% 升到 30%，最多尝试 3 次的误升级变为 0.027 × 120 ≈ 3.2 个，2 次变为 0.09 × 120 = 10.8 个，这时该先修预发环境，而不是一味提高上限。如果失败彼此相关（例如预发整体故障一小时），120 × p³ 只是独立情景下的期望值，实际会成批出现，要按时间窗口看失败是否扎堆。每个作业的轮数从 12 升到 20，方案 X 的输入变为 120 × 20 × 18k = 43.2M。方案 Y 如果只追加不改写，增长的历史也能部分命中缓存，与 X 的实际费用差距会小于 3.5 倍；但每次压缩后，摘要及其后的片段仍要重新写入缓存，细节丢失也仍在。</p>
+<p><b>没算的</b>：预发环境本身的计算费用、「待核对」和移交作业的人工处理时间、失败作业的 token 重试成本。</p>
+<p><b>怎么实测</b>：先在沙箱里跑 10 个作业，记录每个作业的实际轮数、每轮输入输出 token、缓存命中率、预发失败的次数与原因、每个作业的查询次数；用实测值替换上面每个假设，再按每天剩余配额重排工期。</p>
+</section>
+<section id="refs">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Cross-references 回链</span></div>
+<h2>原理去哪里补</h2>
+<ul class="refs"><li><a href="https://xxxxxthhh.github.io/ai-systems-handbook/chapters/4-2-planning-loop.html" rel="noopener"><span class="ref-tag">AI 4.2</span></a> 什么时候循环、什么时候停，本题的停止条件是它的工程版 <span class="ref-book">· AI 系统工程手册</span></li><li><a href="https://xxxxxthhh.github.io/ai-systems-handbook/chapters/4-3-memory.html" rel="noopener"><span class="ref-tag">AI 4.3</span></a> 短期与长期记忆、上下文压缩策略 <span class="ref-book">· AI 系统工程手册</span></li><li><a href="https://xxxxxthhh.github.io/ai-systems-handbook/chapters/2-2-prompt-caching.html" rel="noopener"><span class="ref-tag">AI 2.2</span></a> 前缀缓存原理，以及它对 prompt 排序的反向约束 <span class="ref-book">· AI 系统工程手册</span></li><li><a href="https://xxxxxthhh.github.io/ai-systems-handbook/chapters/6-6-generation-output-contracts.html" rel="noopener"><span class="ref-tag">AI 6.6</span></a> 提交点、稳定 operation_id 与幂等重试 <span class="ref-book">· AI 系统工程手册</span></li><li><a href="https://xxxxxthhh.github.io/ccdv-handbook/chapters/ch11.html" rel="noopener"><span class="ref-tag">DV ch11</span></a> Context Engineering：钉住什么、压缩什么 <span class="ref-book">· CCDV 备考手册</span></li><li><a href="https://xxxxxthhh.github.io/ccar-handbook/chapters/ch04.html" rel="noopener"><span class="ref-tag">AR ch04</span></a> 强制与状态：把状态放在模型之外 <span class="ref-book">· CCAR 备考手册</span></li><li><a href="https://xxxxxthhh.github.io/ccar-handbook/chapters/ch13.html" rel="noopener"><span class="ref-tag">AR ch13</span></a> 上下文管理 <span class="ref-book">· CCAR 备考手册</span></li><li><a href="https://xxxxxthhh.github.io/ccar-handbook/chapters/ch14.html" rel="noopener"><span class="ref-tag">AR ch14</span></a> 可靠性工程：升级与人工介入 <span class="ref-book">· CCAR 备考手册</span></li><li><a href="B01.html"><span class="ref-tag">B01</span></a> 编排光谱：外层代码按作业拆子任务</li><li><a href="B03.html"><span class="ref-tag">B03</span></a> 上下文工程与缓存</li><li><a href="B04.html"><span class="ref-tag">B04</span></a> Memory 设计：跨会话该记什么</li><li><a href="B06.html"><span class="ref-tag">B06</span></a> Agent 评估：pass^k、假完成率</li><li><a href="B08.html"><span class="ref-tag">B08</span></a> 错误恢复与幂等</li><li><a href="B09.html"><span class="ref-tag">B09</span></a> 延迟与成本估算</li></ul>
+</section>
+<section id="mine">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Your Turn 本人填写</span></div>
+<h2>只写真实经历</h2>
+<div class="mine" data-mine><p>只写真实经历，没有就空着，不编。公开版只有空表；填好的版本存在自己的私用练习记录里。</p>
+<div class="tbl-scroll"><table><thead><tr><th>场景</th><th>当时发生了什么</th><th>我亲自做了什么（团队 / AI 做了什么）</th><th>怎么发现的，结果和证据</th><th>之后怎么防</th></tr></thead><tbody><tr><td>Agent 自称完成，实际没有完成</td><td></td><td></td><td></td><td></td></tr><tr><td>长会话或重开会话后，丢了任务或约束</td><td></td><td></td><td></td><td></td></tr></tbody></table></div></div><h3>练习记录</h3><div class="mine"><div class="tbl-scroll"><table><thead><tr><th>日期</th><th>交卷用时</th><th>口述用时</th><th>脱稿？</th><th>答不上的追问</th><th>下一轮修正（≤2）</th></tr></thead><tbody><tr><td></td><td></td><td></td><td></td><td></td><td></td></tr></tbody></table></div></div>
+</section>
+</main>
+<nav class="next"><a href="A05.html">← A05 浏览器 / computer-use Agent</a><a href="B01.html">B01 编排光谱 →</a></nav>
+</div>
+<script src="../assets/interview.js"></script>
+</body>
+</html>

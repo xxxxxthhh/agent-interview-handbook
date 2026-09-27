@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>B03 上下文工程与缓存 · Agent 设计面试手册</title>
+<meta name="description" content="Context engineering and caching">
+<link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Noto+Sans+SC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Noto+Sans+SC:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"></noscript>
+<link rel="stylesheet" href="../assets/handbook.css">
+<link rel="stylesheet" href="../assets/interview.css">
+<script src="../assets/theme.js"></script>
+</head>
+<body>
+<button class="theme-toggle" type="button" aria-label="切换深色/浅色模式" title="切换深色/浅色模式">
+  <span class="moon" aria-hidden="true">🌙</span><span class="sun" aria-hidden="true">☀️</span>
+</button>
+<div class="wrap">
+<nav class="crumb"><a href="../index.html">← 目录</a> · Part B · 横切深挖</nav>
+<main data-unit="B03" data-kind="B">
+<header class="ch">
+  <div class="blockrow" aria-hidden="true"><span class=""></span><span class="w"></span><span class=""></span><span class=""></span><span class="w"></span><span class=""></span><span class="f"></span><span class=""></span><span class="w"></span><span class="f"></span></div>
+  <div class="kicker">Part B · 横切深挖 · B03 </div>
+  <h1>Context engineering and caching<span class="zh">上下文工程与缓存</span></h1>
+  <div class="meta">
+    
+    <span>口述 <b>2 min</b></span>
+    <span>追问 <b>7 层</b></span>
+    <span>适合 <b>垂直 Agent 研发, FDE</b></span>
+  </div>
+</header>
+<section id="prompt">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Prompt 题面</span></div>
+<h2>先想清楚再开口</h2>
+<div data-prompt><div class="callout prompt-card"><p>你讲完一个长任务 Agent，面试官接着问：「它跑了两个小时，上下文快满了。上周改版之后，账单上的输入成本涨了一截，首 token 也变慢了。你怎么设计它的上下文？压缩之后，你怎么知道它没把任务忘了？」</p></div>
+<p>题面为本书自拟的训练题，不代表任何公司的真实面试题或真实系统。场景和数字均为虚构练习设定。</p></div>
+<h3>约束</h3><div class="tbl-scroll"><table><thead><tr><th>约束</th><th>取值（练习设定）</th></tr></thead><tbody><tr><td>任务</td><td>长任务 Agent（虚构）：把一个中型仓库的测试框架整体迁移，跑数百步，中间会被压缩多次</td></tr><tr><td>上下文</td><td>上限 200k tokens；固定部分为 system 8k + 工具定义 12k + 目标与验收条款 2k</td></tr><tr><td>工具结果</td><td>单次最多约 30k tokens（测试日志、整份文件）；多数只需要其中一小段</td></tr><tr><td>计费</td><td>缓存读取按普通输入价格的 r 倍计（r &lt; 1），写入缓存按 w 倍计（w ≥ 1）；r、w 是练习参数</td></tr><tr><td>现象</td><td>上周改版后，缓存命中率从约八成掉到约两成，输入成本和首 token 延迟一起上升</td></tr><tr><td>要求</td><td>压缩后不能丢目标、验收条款和用户给过的硬约束；任务进度有外部账本</td></tr></tbody></table></div><details class="reveal" data-reveal="twist"><summary>答到一半再点开：面试官补了一句</summary><div class="reveal-body"><p data-twist>「产品要求在 system prompt 里加上当前时间和用户时区，方便模型处理日期。」</p></div></details>
+</section>
+<section id="reference">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Answer 参考回答</span></div>
+<h2>先口答，再展开</h2>
+<div data-reference><details class="reveal" data-reveal="reference"><summary>展开参考回答</summary><div class="reveal-body"><h3>该先问的问题</h3><ol><li>哪些信息是任务真值——目标、验收条款、用户的硬约束、已经做出的决定？它们在对话之外有没有权威副本？这决定哪些东西可以被摘要、哪些必须钉住。</li><li>工具结果能不能重取？重取要多久、有没有副作用？这决定大结果能不能只留摘要和句柄。</li><li>你用的缓存怎么匹配、按什么粒度命中、有效期多长、读写怎么计价？这决定 prompt 的排布规则和估算参数，要以服务文档为准，不能凭印象。</li><li>命中率是从哪个版本开始掉的？那次改了什么？这决定先查 diff，而不是先改架构。</li><li>压缩由谁触发、谁写摘要、摘要能不能校验？这决定压缩后怎么验证没丢任务。</li></ol><h3>一句话框架</h3><div class="frame" data-frame><p>上下文按稳定度分层：不变的内容放最前、逐字节不动；任务真值钉住并在账本里留权威副本；可重取的观察只留摘要和句柄；压缩少做、在边界做，做完拿账本回归检查。</p></div><h3>设计取舍表</h3><figure data-fig="B03-layers"><svg viewBox="0 0 760 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="上下文按稳定度分层，以及易变字段放在前缀时缓存为什么整段失效">
+  <!-- 正确排布 -->
+  <text x="20" y="24" class="lbl">按稳定度排序：越不变越靠前，新内容只往后追加</text>
+
+  <rect x="20" y="40" width="96" height="56" rx="6" fill="var(--alloc)"/>
+  <text x="68" y="63" class="onfill" text-anchor="middle">system</text>
+  <text x="68" y="81" class="onfill" text-anchor="middle">8k</text>
+  <rect x="120" y="40" width="130" height="56" rx="6" fill="var(--alloc)"/>
+  <text x="185" y="63" class="onfill" text-anchor="middle">工具定义</text>
+  <text x="185" y="81" class="onfill" text-anchor="middle">12k · 顺序固定</text>
+  <rect x="254" y="40" width="96" height="56" rx="6" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="302" y="63" class="lbl" text-anchor="middle">钉住块</text>
+  <text x="302" y="81" class="mn" text-anchor="middle">目标 · 验收</text>
+  <rect x="354" y="40" width="90" height="56" rx="6" fill="var(--card)" stroke="var(--line)"/>
+  <text x="399" y="63" class="lbl" text-anchor="middle">压缩摘要</text>
+  <text x="399" y="81" class="mn" text-anchor="middle">带版本</text>
+  <rect x="448" y="40" width="190" height="56" rx="6" fill="var(--free)" opacity=".55"/>
+  <text x="543" y="63" class="lbl" text-anchor="middle">历史观察（只追加）</text>
+  <text x="543" y="81" class="mn" text-anchor="middle">大结果留摘要 · 按需受控留存</text>
+  <rect x="642" y="40" width="98" height="56" rx="6" fill="var(--waste-soft)" stroke="var(--waste)" stroke-width="2"/>
+  <text x="691" y="63" class="lbl" text-anchor="middle">当前轮</text>
+  <text x="691" y="81" class="mn" text-anchor="middle">时间等易变字段</text>
+
+  <line x1="20" y1="110" x2="636" y2="110" stroke="var(--alloc)" stroke-width="3"/>
+  <text x="20" y="130" class="mn">上一次调用已经见过的前缀 → 可命中缓存（若服务按前缀匹配）</text>
+  <line x1="642" y1="110" x2="740" y2="110" stroke="var(--waste)" stroke-width="3"/>
+  <text x="740" y="130" class="mn" text-anchor="end">新增部分</text>
+
+  <!-- 错误排布 -->
+  <text x="20" y="178" class="lbl">把时间戳写进 system：第一个字节就变了，后面全部失效</text>
+  <rect x="20" y="194" width="78" height="56" rx="6" fill="var(--waste-soft)" stroke="var(--waste)" stroke-width="2"/>
+  <text x="59" y="217" class="lbl" text-anchor="middle">时间戳</text>
+  <text x="59" y="235" class="mn" text-anchor="middle">每轮都变</text>
+  <rect x="102" y="194" width="638" height="56" rx="6" fill="var(--card)" stroke="var(--waste)" stroke-dasharray="6 5"/>
+  <text x="421" y="217" class="lbl" text-anchor="middle">system · 工具定义 · 钉住块 · 摘要 · 历史 · 当前轮</text>
+  <text x="421" y="235" class="mn" text-anchor="middle">内容没变，但前缀已经对不上：整段按未命中计费，还可能重新写入缓存</text>
+  <line x1="20" y1="264" x2="740" y2="264" stroke="var(--waste)" stroke-width="3"/>
+
+  <!-- 图例 -->
+  <rect x="20" y="300" width="16" height="16" rx="3" fill="var(--alloc)"/>
+  <text x="44" y="313" class="sub">稳定前缀：逐字节不变</text>
+  <rect x="196" y="300" width="16" height="16" rx="3" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="220" y="313" class="sub">任务真值：钉住，账本有权威副本</text>
+  <rect x="436" y="300" width="16" height="16" rx="3" fill="var(--free)" opacity=".55"/>
+  <text x="460" y="313" class="sub">可重取观察</text>
+  <rect x="560" y="300" width="16" height="16" rx="3" fill="var(--waste-soft)" stroke="var(--waste)" stroke-width="2"/>
+  <text x="584" y="313" class="sub">易变：只放末尾</text>
+  <text x="20" y="346" class="mn">长度为练习设定；缓存的匹配规则、有效期和计价以你所用服务的文档为准</text>
+</svg><figcaption>上下文按稳定度排布。上：越不变越靠前，新内容只往后追加，上一次调用已经见过的前缀可以命中缓存。下：把时间戳写进 system，第一个字节就变了，后面内容虽然没变也全部对不上。缓存的具体匹配规则、有效期和计价以所用服务的文档为准。</figcaption></figure>
+<div class="tbl-scroll"><table><thead><tr><th>设计点</th><th>采用</th><th>否决的备选</th><th>什么证据会让我改</th></tr></thead><tbody><tr><td>排布顺序</td><td>system → 工具定义（顺序固定）→ 钉住的目标与验收条款 → 压缩摘要 → 历史观察（只追加）→ 当前轮</td><td>按「重要性」排，或者把进度、计划写进 system 每轮改写</td><td>如果所用服务不是按前缀匹配缓存（例如按显式标记的块缓存），按它的规则重新排；原则仍是稳定内容和易变内容分开</td></tr><tr><td>易变字段</td><td>时间、随机 ID、计数器、当前进度只放在当前轮，或者让模型用工具去取</td><td>放进 system 或工具描述</td><td>实测某个易变字段放在前面对质量有明显帮助，且代价可以接受时，降到最粗的粒度（例如只写日期），并接受按天失效</td></tr><tr><td>工具结果</td><td>模型只拿摘要和关键片段。确实需要恢复的原始结果（有副作用、结果会随时间变化、重取很贵）按来源 ACL 和分级存进受控存储，给一个不可猜的句柄；每次按句柄读取都由服务端重新授权；设保存期，并能按数据主体删除。其余结果只存摘要</td><td>原样全部塞进上下文；或者把所有原文都存成一个没有权限和删除边界的常驻副本</td><td>结果很小、下一步确实要用全文时，直接放入；取片段的往返延迟比多读几千 token 更贵时，也直接放入</td></tr><tr><td>钉住块</td><td>目标、验收条款、用户硬约束作为钉住块，不参与摘要，原样放在稳定前缀里；权威副本在外部账本，带版本号</td><td>和对话一起被摘要</td><td>目标或条款改版时，按新版本整体替换钉住块，这会让缓存失效，是有意为之</td></tr><tr><td>压缩时机</td><td>到达上限的约七成，或者在子任务完成这类自然边界压缩一次；摘要写进账本，带版本</td><td>每轮滚动摘要（每轮都让摘要之后的前缀变化，缓存几乎用不上）</td><td>实测显示长上下文下的质量下降出现得更早，就把阈值往前挪；以任务完成率为准，不以 token 为准</td></tr><tr><td>压缩验证</td><td>压缩后让模型复述目标、下一步和尚未满足的条款，与账本比对；对不上就用账本重建上下文，并记一次压缩失败</td><td>相信摘要写得对</td><td>复述一致率长期很高、压缩后的假完成率不升，才减少验证频率，但不取消</td></tr><tr><td>监控</td><td>每次调用记录缓存读、写 token，命中率，首 token 延迟；按版本对比；前缀哈希一变就告警</td><td>只看月底账单</td><td>不改；缓存失效是静默的，不监控就只能从账单上事后发现</td></tr></tbody></table></div></div></details></div>
+</section>
+<section id="oral">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Two-minute English 口述</span></div>
+<h2>两分钟，先结论后展开</h2>
+<div data-oral><div class="timer" data-timer data-seconds="120" hidden><span class="t-label">口述计时</span><span class="t-read" aria-live="polite">02:00</span><span class="t-bar"><span></span></span><button type="button" data-act="toggle">开始</button><button type="button" data-act="reset">重置</button></div><details class="reveal" data-reveal="english"><summary>展开 2 分钟英文口述稿</summary><div class="reveal-body"><p>I'd organize the context by how stable each part is, because caching and correctness both depend on it.</p>
+<p>At the front goes what never changes: the system prompt and tool definitions, byte for byte, in a fixed order. Next comes the pinned block — the goal, the acceptance criteria, and the user's hard constraints. It's never summarized, and the ledger outside the conversation keeps the authoritative copy. After that, history is only appended. For large tool results the model gets a summary and the few lines it needs; raw output is kept only when we must recover it, under the source's access rules and a retention limit.</p>
+<p>Anything volatile — timestamps, random IDs, progress — goes in the latest turn or behind a tool. So if the product wants the current time, I add it at the end, not in the system prompt.</p>
+<p>Compaction is the exception: it resets whatever follows the pinned block. So I compact rarely, at natural boundaries such as a finished subtask. Afterwards I ask the agent to restate the goal and the next step and compare that with the ledger; if they disagree, I rebuild the context from the ledger.</p>
+<p>For the drop in cache hits, I'd diff the prompt prefix between the two releases and find the first byte that changed, and I'd alert whenever the prefix hash changes.</p></div></details></div>
+</section>
+<section id="followups">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Follow-ups 追问</span></div>
+<h2>一层一层往下问</h2>
+<ol class="followups" data-followups><li data-layer="1"><div class="fq"><span class="qtype">为何不用备选</span>为什么不干脆换更大的上下文窗口，把所有东西都留着？</div><details class="reveal" data-reveal="f1"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>窗口再大也有上限，长任务迟早会碰到；换大窗口只是推迟压缩，不是取消压缩。</li><li>每一步都要把整个上下文读一遍：没有缓存时，输入成本随上下文长度线性增长，首 token 延迟也跟着涨。</li><li>长上下文里，中间位置的信息更容易被忽略（原理见 AI 3.4）；关键约束埋在几十万 token 中间，并不比钉在前面更安全。</li><li>什么时候接受大窗口：任务短、上下文增长有界、且实测质量没有下降时，大窗口加缓存是最省事的方案。</li></ul></div></details></li><li data-layer="2"><div class="fq"><span class="qtype">需求变化</span>产品要在 system prompt 里加上当前时间和用户时区。</div><details class="reveal" data-reveal="f2"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>先问为什么需要：多数时候是模型要处理「今天」「下周一」这类相对日期。把时间放在当前轮，或者提供一个取时间的工具，效果相同，前缀不动。</li><li>如果坚持要放在前面：降到最粗的粒度（只写日期和时区），只在日期变化时变，接受每天一次缓存失效；不要精确到秒。</li><li>把代价讲成数字：按下面的估算，前缀每轮都变时，整段都按未命中计费，还可能每轮都重新写入缓存。</li></ul></div></details></li><li data-layer="3"><div class="fq"><span class="qtype">失败反证</span>一次压缩之后，Agent 又去改了一个用户早就说过「不要动」的目录。怎么防？事后怎么发现？</div><details class="reveal" data-reveal="f3"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>根因通常是：这条约束只在对话里说过，没进钉住块，被摘要丢掉了。</li><li>防：用户给出的硬约束当场写入账本和钉住块，不依赖摘要保留；执行端对这类约束做确定性检查（例如禁止写入的路径列表），不只靠模型记得。</li><li>发现：压缩后的复述检查要覆盖「硬约束」这一项；把这次事故做成回归用例——人为触发压缩，检查约束是否还在、是否被违反。</li></ul></div></details></li><li data-layer="4"><div class="fq"><span class="qtype">诊断</span>命中率从八成掉到两成，你第一步查什么？</div><details class="reveal" data-reveal="f4"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>先查 diff，不先改架构：取改版前后两个请求的前缀，逐段对比，找第一个不同的字节。</li><li>常见元凶：时间戳或请求 ID 进了 system；工具列表的顺序不稳定（例如从无序集合里迭代生成）；JSON 序列化时字段顺序变了；把用户信息或实验分组插在前缀中间。</li><li>另一类原因不在前缀：两次调用间隔超过了缓存有效期，或者请求没有落到同一份缓存上（如果服务有这类机制）。按服务文档逐项排除。</li><li>修完之后，用前缀哈希做回归测试：同一任务连续两轮的前缀哈希必须相同。</li></ul></div></details></li><li data-layer="5"><div class="fq"><span class="qtype">工具结果</span>一次测试日志有 30k tokens，模型只需要最后的失败栈。怎么处理？</div><details class="reveal" data-reveal="f5"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>给模型的是：退出码、失败用例名、最后若干行、以及一个可以按范围读取的句柄。日志原文只在确实需要回看时才留：按来源仓库的权限存进受控存储，设保存期。</li><li>模型需要更多时，用句柄取指定片段，不重跑测试。重跑有成本，有些工具还有副作用。</li><li>失败模式要防：摘要把关键行裁掉了。所以句柄在任务期内和保存期内要能用，并在评估里统计「因为信息被裁掉而多走的步数」。</li><li>句柄不是凭证：它只是一个引用，每次读取仍按请求人和来源 ACL 在服务端重新授权。另一个项目的人猜到或拿到句柄，也读不到内容；越权读取要记审计日志。</li></ul></div></details></li><li data-layer="6"><div class="fq"><span class="qtype">压缩代价</span>压缩本身会让缓存失效，那什么时候值得压？</div><details class="reveal" data-reveal="f6"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>压缩的代价是一次性的：一次摘要调用，加上压缩后第一轮要重新写入摘要之后的部分。</li><li>收益是持续的：之后每一步读的上下文都变短，首 token 延迟下降，也离上限更远。</li><li>所以压缩要少而准：在自然边界做，而不是每轮滚动；裁剪工具结果能让上下文长得更慢，压缩次数也就更少（见估算的敏感性）。</li></ul></div></details></li><li data-layer="7"><div class="fq"><span class="qtype">评估</span>你怎么证明新的上下文策略没有降低任务完成率？</div><details class="reveal" data-reveal="f7"><summary>先口答，再展开要点</summary><div class="reveal-body"><ul><li>用固定、可重置的长任务集做对照（评估口径见 B06）：完成率、假完成率（自称完成但检查器不通过）、每个任务的输入 token 与缓存命中率、压缩后复述与账本的一致率。</li><li>故意制造压力：人为触发压缩、塞入超长工具结果、在对话早期给出硬约束，看这些情况下的违反率。</li><li>只看成本下降不够；成本降了但假完成率升了，就是退步。</li></ul></div></details></li></ol><button type="button" class="next-layer" data-act="next-layer" hidden>下一层追问 ↓</button>
+</section>
+<section id="failures">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Failure Modes 失败模式</span></div>
+<h2>这些地方最容易栽</h2>
+<div class="fail-grid"><div class="case fail-card"><div class="case-head"><span class="cell"></span>易变字段混进前缀，缓存静默失效</div><div class="case-body"><ul><li><b>症状</b>：输入成本和首 token 延迟在某次发布后同时上升，功能测试全部通过，没有报错。</li><li><b>根因</b>：时间戳、请求 ID、无序的工具列表之类的易变内容进了前缀，每次调用前缀都不同；缓存失效不会报错，只会在账单和延迟上体现。</li><li><b>防线</b>：前缀哈希监控与告警；「连续两轮前缀相同」作为回归测试；代码评审时把 system prompt 和工具定义当成缓存敏感文件。</li></ul></div></div><div class="case fail-card"><div class="case-head"><span class="cell"></span>摘要吞掉了约束</div><div class="case-body"><ul><li><b>症状</b>：压缩后 Agent 重复已经做完的步骤，或者违反用户早先说过的约束。</li><li><b>根因</b>：约束和进度只存在于对话里，摘要是模型写的，没有任何东西保证它保留了关键内容。</li><li><b>防线</b>：硬约束和进度写进外部账本和钉住块；压缩后复述并与账本比对；执行端对能写成规则的约束做确定性检查。</li></ul></div></div><div class="case fail-card"><div class="case-head"><span class="cell"></span>裁剪掉的内容取不回来</div><div class="case-body"><ul><li><b>症状</b>：模型后来需要一段早先的工具输出，却只能重新调用工具，而那次调用有副作用或结果已经变了。</li><li><b>根因</b>：把「只给模型看摘要」做成了「只保留摘要」，原文没有留存；可重取和不可重取的结果没有区分。</li><li><b>防线</b>：先分类：有副作用、结果会随时间变化或重取很贵的原始结果，才存进受控存储；它继承来源的 ACL 和分级，按句柄读取时每次重新授权，设保存期，并能按数据主体删除（备份同样在删除范围内，备份例外要由法务界定并写清最长到期时间）。不需要恢复的结果只存摘要，不留原文，也就不会多出一份机密副本。</li></ul></div></div></div>
+</section>
+<section id="estimate">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Estimate 估算</span></div>
+<h2>带着量纲算一遍</h2>
+<p><b>问：同一个长任务，缓存用得好、没开缓存、前缀每轮都变，输入成本差多少？裁剪工具结果对压缩次数有什么影响？</b></p>
+<p>假设（练习设定，全部待实测）：稳定前缀 S = 22k tokens；每步新增 δ = 6k tokens（裁剪后的工具结果约 5k + 模型输出约 1k）；两次压缩之间走 20 步；历史只追加，缓存按前缀匹配、且在有效期内；缓存读取按普通输入价格的 r 倍计，写入按 w 倍计；以普通输入价格为 1 个单位；只算输入 token。</p>
+<pre class="formula calc"><code>第 t 步的输入长度   L_t = 22k + 6k × t          （t = 1…20）
+第 20 步            L_20 = 22k + 120k = 142k    （约为上限 200k 的七成）
+20 步输入合计       20 × 22k + 6k × (1+…+20) = 440k + 1,260k = 1,700k
+
+缓存用得好（只追加）
+  可命中部分   = 上一步见过的前缀 = 1,700k − L_20 = 1,558k
+  新写入部分   = 1,700k − 1,558k = 142k        （第 1 步的 28k + 后 19 步各 6k）
+  成本         = 1,558k × r + 142k × w
+  r = 0.2, w = 1.2 时  = 311.6k + 170.4k = 482k 单位 ≈ 不开缓存的 28%
+
+不开缓存        = 1,700k × 1 = 1,700k 单位
+
+前缀每轮都变（且每次都重新写入缓存）
+                = 1,700k × w = 2,040k 单位 ≈ 不开缓存的 120%</code></pre>
+<p><b>结论</b>：在这组假设下，前缀稳定时的输入成本约为不开缓存的 28%；而前缀每轮都变时，如果每次都重新写入缓存，反而比不开缓存更贵。这是有条件的结论：它依赖 r、w 的实际计价，依赖服务是否自动写入缓存，也依赖两次调用的间隔是否在缓存有效期内。</p>
+<p><b>敏感性</b>：</p>
+<ul><li>r 从 0.2 升到 0.5（其余不变）：成本 = 1,558k × 0.5 + 170.4k = 949.4k 单位，约为不开缓存的 56%。缓存的收益对读取价格比例很敏感。</li><li>不裁剪工具结果、每步新增 δ = 15k：从 22k 涨到压缩阈值 142k 只要 8 步（22k + 15k × 8 = 142k），而 δ = 6k 时要 20 步。每 100 步的压缩周期数从 5 个变成约 12–13 个（100 ÷ 8 = 12.5，具体取决于初始上下文和最后一段是否要压），每次压缩都会让摘要之后的部分重新写入。裁剪的收益不只是省 token，还有更少的缓存重置。</li></ul>
+<p><b>没算的</b>：输出 token、压缩调用本身的输出、首 token 延迟（通常随未命中的 token 数增长，但比例要实测）、缓存过期造成的额外未命中。</p>
+<p><b>怎么实测</b>：按版本记录每次调用的缓存读、写 token 和首 token 延迟；统计每步新增 token 的分布和两次压缩之间的步数；向服务文档确认 r、w、有效期和匹配规则后，用实测值替换上面的每个假设，再重算。</p>
+</section>
+<section id="refs">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Cross-references 回链</span></div>
+<h2>原理去哪里补</h2>
+<ul class="refs"><li><a href="https://xxxxxthhh.github.io/ai-systems-handbook/chapters/2-2-prompt-caching.html" rel="noopener"><span class="ref-tag">AI 2.2</span></a> 前缀缓存原理，以及它对 system prompt 设计的反向约束 <span class="ref-book">· AI 系统工程手册</span></li><li><a href="https://xxxxxthhh.github.io/ai-systems-handbook/chapters/3-4-rag-vs-long-context.html" rel="noopener"><span class="ref-tag">AI 3.4</span></a> 长上下文与检索的成本、质量边界 <span class="ref-book">· AI 系统工程手册</span></li><li><a href="https://xxxxxthhh.github.io/ai-systems-handbook/chapters/4-3-memory.html" rel="noopener"><span class="ref-tag">AI 4.3</span></a> 短期记忆与上下文压缩策略 <span class="ref-book">· AI 系统工程手册</span></li><li><a href="https://xxxxxthhh.github.io/ccdv-handbook/chapters/ch11.html" rel="noopener"><span class="ref-tag">DV ch11</span></a> Context Engineering：上下文的组织与裁剪 <span class="ref-book">· CCDV 备考手册</span></li><li><a href="https://xxxxxthhh.github.io/ccar-handbook/chapters/ch13.html" rel="noopener"><span class="ref-tag">AR ch13</span></a> 上下文管理：长会话里的上下文取舍 <span class="ref-book">· CCAR 备考手册</span></li><li><a href="A02.html"><span class="ref-tag">A02</span></a> 深度研究：检索子问题的上下文隔离与证据卡</li><li><a href="A05.html"><span class="ref-tag">A05</span></a> 浏览器 Agent：截图和 DOM 这类大观察怎么进上下文</li><li><a href="A06.html"><span class="ref-tag">A06</span></a> 长任务 goal Agent：目标钉住、账本与压缩后对账</li><li><a href="B04.html"><span class="ref-tag">B04</span></a> Memory：跨会话的记忆，和单次任务内的上下文分开</li><li><a href="B06.html"><span class="ref-tag">B06</span></a> 怎么评估上下文策略有没有降低完成率</li><li><a href="B09.html"><span class="ref-tag">B09</span></a> 延迟与成本：把缓存收益放进整体估算</li></ul>
+</section>
+<section id="mine">
+<div class="sec-tag"><span class="cell"></span><span class="lab">Your Turn 本人填写</span></div>
+<h2>只写真实经历</h2>
+<div class="mine" data-mine><p>只写真实经历，没有就空着，不编。公开版只有空表；填好的版本存在自己的私用练习记录里。</p>
+<div class="tbl-scroll"><table><thead><tr><th>场景</th><th>当时发生了什么</th><th>我亲自做了什么（团队 / AI 做了什么）</th><th>怎么发现的，结果和证据</th><th>之后怎么防</th></tr></thead><tbody><tr><td>长会话或压缩后，Agent 丢了任务或约束</td><td></td><td></td><td></td><td></td></tr><tr><td>一次改动让成本或延迟莫名上升</td><td></td><td></td><td></td><td></td></tr></tbody></table></div></div><h3>练习记录</h3><div class="mine"><div class="tbl-scroll"><table><thead><tr><th>日期</th><th>口述用时</th><th>脱稿？</th><th>答不上的追问</th><th>下一轮修正（≤2）</th></tr></thead><tbody><tr><td></td><td></td><td></td><td></td><td></td></tr></tbody></table></div></div>
+</section>
+</main>
+<nav class="next"><a href="B02.html">← B02 Tool / MCP 接口设计</a><a href="B04.html">B04 Memory 设计 →</a></nav>
+</div>
+<script src="../assets/interview.js"></script>
+</body>
+</html>

@@ -1,0 +1,86 @@
+<svg viewBox="0 0 760 452" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="改代码的 Agent 的数据流与控制流">
+  <defs>
+    <marker id="a01-arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="var(--ink-soft)"/>
+    </marker>
+  </defs>
+
+  <!-- 第一行：需求 → 验收条款（左→右） -->
+  <rect x="22" y="40" width="150" height="54" rx="7" fill="var(--waste-soft)" stroke="var(--waste)" stroke-dasharray="5 4"/>
+  <text x="97" y="63" class="lbl" text-anchor="middle">需求 + 例子</text>
+  <text x="97" y="81" class="sub" text-anchor="middle">一句话，不可信文本</text>
+
+  <rect x="212" y="40" width="150" height="54" rx="7" fill="var(--alloc)" stroke="var(--alloc)"/>
+  <text x="287" y="63" class="lbl" text-anchor="middle" style="fill:var(--on-fill)">起草验收测试</text>
+  <text x="287" y="81" class="onfill" text-anchor="middle">例子 + 不变量</text>
+
+  <rect x="402" y="40" width="150" height="54" rx="7" fill="var(--card)" stroke="var(--waste)" stroke-width="2.5"/>
+  <text x="477" y="63" class="lbl" text-anchor="middle">需求方确认</text>
+  <text x="477" y="81" class="sub" text-anchor="middle">口径由人定</text>
+
+  <rect x="592" y="40" width="150" height="54" rx="7" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="667" y="63" class="lbl" text-anchor="middle">条款冻结</text>
+  <text x="667" y="81" class="sub" text-anchor="middle">带版本号</text>
+
+  <line x1="172" y1="67" x2="208" y2="67" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a01-arr)"/>
+  <line x1="362" y1="67" x2="398" y2="67" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a01-arr)"/>
+  <line x1="552" y1="67" x2="588" y2="67" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a01-arr)"/>
+
+  <!-- 沙盒 / 不可信数据区 -->
+  <rect x="8" y="126" width="744" height="136" rx="10" fill="var(--waste-soft)" stroke="var(--waste)" stroke-dasharray="6 5" opacity=".9"/>
+  <text x="22" y="119" class="mn">沙盒：无生产密钥 · 只通内部包镜像 · 只写任务分支 · 仓库代码、依赖、工具输出都不可信</text>
+  <text x="22" y="148" class="mn">有界循环：步数 / 时间 / token 上限</text>
+
+  <!-- 第二行：循环（右→左） -->
+  <rect x="562" y="166" width="170" height="54" rx="7" fill="var(--alloc)" stroke="var(--alloc)"/>
+  <text x="647" y="189" class="lbl" text-anchor="middle" style="fill:var(--on-fill)">读代码 · 计划 · 编辑</text>
+  <text x="647" y="207" class="onfill" text-anchor="middle">唯一的模型循环</text>
+
+  <rect x="312" y="166" width="170" height="54" rx="7" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="397" y="189" class="lbl" text-anchor="middle">受影响测试子集</text>
+  <text x="397" y="207" class="sub" text-anchor="middle">约 2 分钟一轮</text>
+
+  <rect x="42" y="166" width="170" height="54" rx="7" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="127" y="189" class="lbl" text-anchor="middle">预算 + 打转检测</text>
+  <text x="127" y="207" class="sub" text-anchor="middle">超限 → 交接说明给人</text>
+
+  <line x1="667" y1="94" x2="667" y2="162" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a01-arr)"/>
+  <line x1="562" y1="182" x2="486" y2="182" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a01-arr)"/>
+  <line x1="482" y1="206" x2="558" y2="206" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a01-arr)"/>
+  <line x1="312" y1="193" x2="216" y2="193" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a01-arr)"/>
+  <text x="228" y="250" class="mn">子集通过 → 送独立检查</text>
+
+  <!-- 第三行：检查与放行（左→右） -->
+  <rect x="22" y="298" width="150" height="54" rx="7" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="97" y="321" class="lbl" text-anchor="middle">独立检查器</text>
+  <text x="97" y="339" class="sub" text-anchor="middle">验收 + 全量 CI + 回放</text>
+
+  <rect x="212" y="298" width="150" height="54" rx="7" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="287" y="321" class="lbl" text-anchor="middle">测试变更检测</text>
+  <text x="287" y="339" class="sub" text-anchor="middle">改测试单独列出</text>
+
+  <rect x="402" y="298" width="150" height="54" rx="7" fill="var(--card)" stroke="var(--waste)" stroke-width="2.5"/>
+  <text x="477" y="321" class="lbl" text-anchor="middle">PR · code owner</text>
+  <text x="477" y="339" class="sub" text-anchor="middle">审查 · 批准测试变更</text>
+
+  <rect x="592" y="298" width="150" height="54" rx="7" fill="var(--card)" stroke="var(--waste)" stroke-width="2.5"/>
+  <text x="667" y="321" class="lbl" text-anchor="middle">合并 · 发布</text>
+  <text x="667" y="339" class="sub" text-anchor="middle">由人执行</text>
+
+  <line x1="97" y1="220" x2="97" y2="294" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a01-arr)"/>
+  <line x1="172" y1="325" x2="208" y2="325" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a01-arr)"/>
+  <line x1="362" y1="325" x2="398" y2="325" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a01-arr)"/>
+  <line x1="552" y1="325" x2="588" y2="325" stroke="var(--ink-soft)" stroke-width="1.5" marker-end="url(#a01-arr)"/>
+
+  <text x="22" y="382" class="mn">↺ 检查失败回到循环；同一测试反复失败或条款不再推进 → 换思路一次，仍不行就交接</text>
+
+  <!-- 图例 -->
+  <rect x="22" y="410" width="16" height="16" rx="3" fill="var(--alloc)"/>
+  <text x="46" y="423" class="sub">模型节点</text>
+  <rect x="140" y="410" width="16" height="16" rx="3" fill="var(--card)" stroke="var(--alloc)" stroke-width="2"/>
+  <text x="164" y="423" class="sub">不经过模型的检查</text>
+  <rect x="330" y="410" width="16" height="16" rx="3" fill="var(--card)" stroke="var(--waste)" stroke-width="2.5"/>
+  <text x="354" y="423" class="sub">人工确认 / 放行</text>
+  <rect x="490" y="410" width="16" height="16" rx="3" fill="var(--waste-soft)" stroke="var(--waste)" stroke-dasharray="4 3"/>
+  <text x="514" y="423" class="sub">不可信内容 / 沙盒</text>
+</svg>
